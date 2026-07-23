@@ -281,3 +281,186 @@
 ---
 
 > 建议面试前通读一遍核心代码，特别是 [VoucherOrderServiceImpl](file://D:\a_develop\hmdp\hm-dianping\src\main\java\com\hmdp\service\impl\VoucherOrderServiceImpl.java) 和 [ShopServiceImpl](file://D:\a_develop\hmdp\hm-dianping\src\main\java\com\hmdp\service\impl\ShopServiceImpl.java)，做到能脱离文档白板画出秒杀时序图和缓存架构图。
+
+---
+
+## 附录 A：秒杀全链路时序图（白板练习）
+
+> 面试中大概率会被要求现场画秒杀流程。以下提供两种视图：**Mermaid 渲染版**（在支持 Mermaid 的编辑器中可直接预览）和**白板手绘文字版**（逐层逐步骤，方便背诵）。
+
+### A.1 时序图（Mermaid 版）
+
+```mermaid
+sequenceDiagram
+    actor User as 用户
+    participant Nginx as Nginx<br/>反向代理
+    participant Ctrl as Controller<br/>秒杀接口
+    participant Redis as Redis<br/>限流+库存+订单集
+    participant MQ as RabbitMQ<br/>order.exchange
+    participant Consumer as OrderConsumer<br/>order.queue
+    participant DB as MySQL<br/>秒杀券+订单表
+    participant DLX as 死信队列<br/>order.dlx.queue
+
+    User->>Nginx: POST /voucher-order/seckill/10
+    Nginx->>Ctrl: rewrite + proxy_pass
+
+    Note over Ctrl,Redis: === 第 1 关：滑动窗口限流 ===
+    Ctrl->>Redis: EVAL rate_limit.lua<br/>ZREMRANGEBYSCORE + ZCARD
+    alt 超过限流阈值(5次/秒)
+        Redis-->>Ctrl: 返回 0，拒绝
+        Ctrl-->>User: "活动太火爆，请稍后再试"
+    end
+
+    Note over Ctrl,Redis: === 第 2 关：Lua 原子扣库存 ===
+    Ctrl->>Redis: EVAL seckill.lua<br/>GET stock → judge → SET stock-1<br/>SISMEMBER judge → SADD record
+    alt stock == 0 || stock == nil
+        Redis-->>Ctrl: 返回 1（库存不足）
+        Ctrl-->>User: "库存不足"
+    else sismember == 1（已购买）
+        Redis-->>Ctrl: 返回 2（重复下单）
+        Ctrl-->>User: "请勿重复下单"
+    else 扣减成功
+        Redis-->>Ctrl: 返回 0 + 库存已扣+用户已记录
+    end
+
+    Note over Ctrl,MQ: === 第 3 关：RabbitMQ 异步下单 ===
+    Ctrl->>Redis: redisIdWorker.nextId("order")<br/>timestamp<<32 | sequence
+    Redis-->>Ctrl: 返回全局唯一 orderId
+    Ctrl->>MQ: convertAndSend(order.exchange, order.generate)<br/>消息体: voucherOrder(CorrelationData=orderId)
+    MQ-->>Ctrl: ConfirmCallback: 到达Exchange ✓
+    Ctrl-->>User: {"success":true, "data":orderId}
+
+    Note over MQ,Consumer: === 第 4 关：消费者异步处理 ===
+    MQ->>Consumer: 投递消息到 order.queue<br/>(prefetch=50, manual ack)
+    Consumer->>DB: COUNT(user_id + voucher_id) 幂等校验
+    alt 已存在订单
+        Consumer->>MQ: basicAck（丢弃重复消息）
+    else 首次下单
+        Consumer->>DB: UPDATE seckill_voucher<br/>SET stock=stock-1<br/>WHERE voucher_id=? AND stock>0
+        alt stock>0 更新成功
+            Consumer->>DB: INSERT voucher_order
+            Consumer->>MQ: basicAck（手动确认）
+        else stock<=0 更新失败
+            Consumer->>MQ: basicNack(false,false)<br/>拒绝且不重回队列
+        end
+    end
+
+    Note over MQ,DLX: === 第 5 关：死信队列异常兜底 ===
+    MQ->>DLX: basicNack → 路由到 order.dlx.queue
+    DLX->>Redis: INCR seckill:stock:voucherId<br/>补偿回滚 Redis 库存
+    DLX->>DLX: log.error 记录异常订单<br/>人工介入处理
+```
+
+### A.2 白板手绘文字版（背诵用）
+
+面试时拿纸笔或白板，按下面 5 层从上到下画，边画边讲：
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    秒杀全链路 —— 5 层架构                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  用户                                                           │
+│  │  POST /voucher-order/seckill/{voucherId}                    │
+│  │  Header: authorization: {token}                             │
+│  ▼                                                              │
+│  Nginx (反向代理)                                                │
+│  │  location /api → rewrite 去掉前缀 → proxy_pass :8081        │
+│  ▼                                                              │
+│  ┌────────────── 第 1 关：滑动窗口限流 ──────────────┐           │
+│  │  rate_limit.lua (ZSet滑动窗口)                    │          │
+│  │  key = "rate_limit:skill:{userId}"               │          │
+│  │  ZREMRANGEBYSCORE 清理过期窗口                     │          │
+│  │  ZCARD 统计当前窗口请求数                          │          │
+│  │  ≥5 → 拒绝  │  <5 → ZADD记录 + 放行               │          │
+│  └──────────────────────────────────────────────────┘           │
+│  │ 放行                                                         │
+│  ▼                                                              │
+│  ┌────────────── 第 2 关：Lua 原子扣库存 ──────────────┐        │
+│  │  seckill.lua (一次 Redis 调用，原子执行)             │       │
+│  │  key: seckill:stock:{voucherId}                    │       │
+│  │  key: seckill:order:{voucherId} (用户集合)          │       │
+│  │                                                     │       │
+│  │  ① GET stock → 判 null 或 ≤0 → return 1            │       │
+│  │  ② SISMEMBER orderSet userId → ==1 → return 2      │       │
+│  │  ③ SET stockKey, stock-1 (不用INCRBY!脏数据安全)    │       │
+│  │  ④ SADD orderSet userId                            │       │
+│  │  ⑤ return 0  (成功)                                │       │
+│  └──────────────────────────────────────────────────┘           │
+│  │ r=0 成功, orderId = redisIdWorker.nextId("order")           │
+│  ▼                                                              │
+│  ┌────────────── 第 3 关：RabbitMQ 异步 ─────────────────┐      │
+│  │  rabbitTemplate.convertAndSend(                       │      │
+│  │    "order.exchange",     // 交换机                     │      │
+│  │    "order.generate",     // routingKey                 │      │
+│  │    voucherOrder,         // 消息体(JSON序列化)          │      │
+│  │    CorrelationData(orderId) // 消息追踪ID              │      │
+│  │  )                                                    │      │
+│  │                                                       │      │
+│  │  → ConfirmCallback: 确认到达 Exchange                  │      │
+│  │  → ReturnsCallback: 确认路由到 Queue                   │      │
+│  │  → 失败 → Redis Set "order:fail" 记录 → 人工补偿        │      │
+│  │                                                       │      │
+│  │  ⚡ 立即返回 {"success":true, "data":orderId}           │      │
+│  └──────────────────────────────────────────────────┘           │
+│  │ 消息投递                                                      │
+│  ▼                                                              │
+│  ┌────────────── 第 4 关：消费者下单 ────────────────────┐      │
+│  │  OrderConsumer.orderConsumer()                        │      │
+│  │  @RabbitListener 监听 order.queue                     │      │
+│  │  prefetch=50, acknowledge-mode=manual                 │      │
+│  │                                                       │      │
+│  │  ① 幂等校验: COUNT(*) WHERE user_id AND voucher_id    │      │
+│  │     已有记录 → basicAck(丢弃)                         │      │
+│  │  ② UPDATE seckill_voucher SET stock=stock-1           │      │
+│  │     WHERE voucher_id=? AND stock>0  (乐观锁)          │      │
+│  │  ③ INSERT INTO voucher_order (订单落库)               │      │
+│  │  ④ basicAck() 手动确认                                │      │
+│  │                                                       │      │
+│  │  ❌ 异常 → basicNack(deliveryTag, false, false)        │      │
+│  │     → 不重回原队列 → 路由到 DLX                        │      │
+│  └──────────────────────────────────────────────────┘           │
+│  │ 异常消息                                                     │
+│  ▼                                                              │
+│  ┌────────────── 第 5 关：死信队列补偿 ──────────────────┐      │
+│  │  dlxConsumer 监听 order.dlx.queue                     │      │
+│  │                                                       │      │
+│  │  ① INCR seckill:stock:{voucherId} (Redis库存回滚)     │      │
+│  │  ② log.error 记录订单ID+用户ID+券ID                   │      │
+│  │  ③ 人工介入处理                                        │      │
+│  │                                                       │      │
+│  │  死信队列绑定:                                          │      │
+│  │  order.queue                                            │      │
+│  │  └─ x-dead-letter-exchange: order.dlx.exchange         │      │
+│  │  └─ x-dead-letter-routing-key: order.dlx               │      │
+│  └──────────────────────────────────────────────────┘           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### A.3 时序图口诀（背诵用）
+
+```text
+一限流  滑动窗口 ZSet 拦，每秒五次防刷单
+二扣存  Lua 原子四步走，库存用户一把梭
+三异步  MQ 发完即返回，确认回调兜异常
+四落库  幂等查重锁库存，手动 ACK 保一致
+五补偿  死信回滚 Redis 量，日志记录人工扛
+```
+
+### A.4 白板练习检查清单
+
+画完之后，对照这个清单检查有没有遗漏：
+
+- [ ] Nginx 层：路径 rewrite + proxy_pass 到 :8081
+- [ ] 第 1 关限流：`rate_limit.lua` → ZSet → `ZREMRANGEBYSCORE` + `ZCARD` + `ZADD`
+- [ ] 第 2 关扣库存：`seckill.lua` → `GET` → `SISMEMBER` → `SET`（不是 INCRBY）→ `SADD`
+- [ ] Lua 返回值：0=成功, 1=库存不足, 2=重复下单
+- [ ] 分布式 ID：`RedisIdWorker.nextId()` → 高32位时间戳 + 低32位序列号
+- [ ] MQ 发送：`convertAndSend(exchange, routingKey, msg, CorrelationData)`
+- [ ] 生产者确认：`ConfirmCallback` + `ReturnsCallback`，失败记 `order:fail`
+- [ ] 消费者四大步骤：幂等查重 → 乐观锁扣库存 → Insert 订单 → basicAck
+- [ ] basicNack 参数：`(deliveryTag, false, false)` → 不批量、不重回队列
+- [ ] 死信队列绑定：`x-dead-letter-exchange` + `x-dead-letter-routing-key`
+- [ ] 死信补偿：`INCR` 回滚 Redis 库存 + 日志告警
+- [ ] 用户收到的响应：`{"success":true, "data":orderId}`，不等待订单落库
