@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/info.css" rel="stylesheet">
+  <style>
+    .el-dialog__body { padding: 15px 20px; }
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></div>
+    <div class="header-title">资料编辑&nbsp;&nbsp;&nbsp;</div>
+  </div>
+  <div class="edit-container">
+    <div class="info-box">
+      <div class="info-item" @click="openAvatarPicker">
+        <div class="info-label">头像</div>
+        <div class="info-btn">
+          <img width="35" :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="info-item" @click="openNicknameEdit">
+        <div class="info-label">昵称</div>
+        <div class="info-btn">
+          <div>{{user.nickName}}</div>
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="info-item" @click="openIntroduceEdit">
+        <div class="info-label">个人介绍</div>
+        <div class="info-btn">
+          <div style="overflow:hidden;width:150px;text-align:right">{{info.introduce || '介绍一下自己'}}</div>
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="info-box">
+      <div class="info-item" @click="openGenderEdit">
+        <div class="info-label">性别</div>
+        <div class="info-btn">
+          <div>{{info.gender === true ? '女' : info.gender === false ? '男' : '选择'}}</div>
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="info-item" @click="openCityEdit">
+        <div class="info-label">城市</div>
+        <div class="info-btn">
+          <div>{{info.city || '选择'}}</div>
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="info-item" @click="openBirthdayPicker">
+        <div class="info-label">生日</div>
+        <div class="info-btn">
+          <div>{{info.birthday || '添加'}}</div>
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="info-box">
+      <div class="info-item" @click="doSign" :style="{opacity: signedToday ? 0.5 : 1}">
+        <div class="info-label">今日签到</div>
+        <div class="info-btn">
+          <div>{{signedToday ? '今日已签到' : signCount + ' 天连续签到'}}</div>
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="info-item">
+        <div class="info-label">会员等级</div>
+        <div class="info-btn">
+          <div><a href="javascript:void(0)">成为VIP尊享特权</a></div>
+          <div><i class="el-icon-arrow-right"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 头像上传隐藏input -->
+  <input type="file" ref="avatarInput" accept="image/*" style="display:none" @change="uploadAvatar">
+
+  <!-- 编辑弹窗 -->
+  <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="85%" :close-on-click-modal="false">
+    <el-input v-if="dialogType==='nickname'" v-model="editValue" maxlength="20" placeholder="请输入昵称"></el-input>
+    <el-input v-if="dialogType==='introduce'" v-model="editValue" type="textarea" :rows="4" maxlength="128" placeholder="介绍一下自己吧"></el-input>
+    <el-input v-if="dialogType==='city'" v-model="editValue" maxlength="20" placeholder="请输入城市名"></el-input>
+    <el-radio-group v-if="dialogType==='gender'" v-model="genderValue">
+      <el-radio :label="false">男</el-radio>
+      <el-radio :label="true">女</el-radio>
+    </el-radio-group>
+    <div v-if="dialogType==='birthday'" style="text-align:center">
+      <el-date-picker v-model="birthdayValue" type="date" placeholder="选择生日" value-format="yyyy-MM-dd"></el-date-picker>
+    </div>
+    <span slot="footer">
+      <el-button @click="dialogVisible=false" size="small">取消</el-button>
+      <el-button type="danger" @click="saveEdit" size="small">保存</el-button>
+    </span>
+  </el-dialog>
+
+  <foot-bar :active-btn="4"></foot-bar>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script>
+  const app = new Vue({
+    el: "#app",
+    data: {
+      user: {},
+      info: {},
+      signCount: 0,
+      signedToday: false,
+      dialogVisible: false,
+      dialogTitle: "",
+      dialogType: "",
+      editValue: "",
+      genderValue: false,
+      birthdayValue: ""
+    },
+    created() {
+      this.checkLogin();
+    },
+    methods: {
+      checkLogin() {
+        axios.get("/user/me")
+          .then(({data}) => {
+            this.user = data;
+            this.info = JSON.parse(sessionStorage.getItem("userInfo")) || {};
+            this.querySignCount();
+          })
+          .catch(() => setTimeout(() => location.href = "login.html", 1000))
+      },
+      querySignCount() {
+        axios.get("/user/sign/count")
+          .then(({data}) => {
+            this.signCount = data;
+            this.signedToday = data > 0;
+          })
+          .catch(() => {})
+      },
+      doSign() {
+        if (this.signedToday) return;
+        axios.post("/user/sign")
+          .then(() => {
+            this.$message.success("签到成功");
+            this.querySignCount();
+          })
+          .catch(err => this.$message.error(err))
+      },
+      openAvatarPicker() {
+        this.$refs.avatarInput.click();
+      },
+      uploadAvatar(e) {
+        let file = e.target.files[0];
+        if (!file) return;
+        let formData = new FormData();
+        formData.append("file", file);
+        axios.post("/upload/avatar", formData, {
+          headers: { "Content-Type": "multipart/form-data;boundary=" + new Date().getTime() }
+        })
+          .then(({data}) => {
+            let iconUrl = "/imgs" + data;
+            this.user.icon = iconUrl;
+            return axios.put("/user/me", { icon: iconUrl });
+          })
+          .then(() => this.$message.success("头像更新成功"))
+          .catch(err => this.$message.error(err))
+          .finally(() => { this.$refs.avatarInput.value = ""; });
+      },
+      openNicknameEdit() {
+        this.dialogTitle = "修改昵称";
+        this.dialogType = "nickname";
+        this.editValue = this.user.nickName || "";
+        this.dialogVisible = true;
+      },
+      openIntroduceEdit() {
+        this.dialogTitle = "个人介绍";
+        this.dialogType = "introduce";
+        this.editValue = this.info.introduce || "";
+        this.dialogVisible = true;
+      },
+      openGenderEdit() {
+        this.dialogTitle = "选择性别";
+        this.dialogType = "gender";
+        this.genderValue = this.info.gender;
+        this.dialogVisible = true;
+      },
+      openCityEdit() {
+        this.dialogTitle = "所在城市";
+        this.dialogType = "city";
+        this.editValue = this.info.city || "";
+        this.dialogVisible = true;
+      },
+      openBirthdayPicker() {
+        this.dialogTitle = "选择生日";
+        this.dialogType = "birthday";
+        this.birthdayValue = this.info.birthday || "";
+        this.dialogVisible = true;
+      },
+      saveEdit() {
+        let type = this.dialogType;
+        if (type === "nickname") {
+          axios.put("/user/me", { nickName: this.editValue })
+            .then(() => {
+              this.user.nickName = this.editValue;
+              this.$message.success("昵称已更新");
+              this.dialogVisible = false;
+            })
+            .catch(err => this.$message.error(err));
+        } else if (type === "introduce" || type === "city") {
+          let payload = type === "introduce" ? { introduce: this.editValue } : { city: this.editValue };
+          axios.put("/user/info", payload)
+            .then(() => {
+              if (type === "introduce") this.info.introduce = this.editValue;
+              else this.info.city = this.editValue;
+              sessionStorage.setItem("userInfo", JSON.stringify(this.info));
+              this.$message.success("已更新");
+              this.dialogVisible = false;
+            })
+            .catch(err => this.$message.error(err));
+        } else if (type === "gender") {
+          axios.put("/user/info", { gender: this.genderValue })
+            .then(() => {
+              this.info.gender = this.genderValue;
+              sessionStorage.setItem("userInfo", JSON.stringify(this.info));
+              this.$message.success("已更新");
+              this.dialogVisible = false;
+            })
+            .catch(err => this.$message.error(err));
+        } else if (type === "birthday") {
+          axios.put("/user/info", { birthday: this.birthdayValue })
+            .then(() => {
+              this.info.birthday = this.birthdayValue;
+              sessionStorage.setItem("userInfo", JSON.stringify(this.info));
+              this.$message.success("已更新");
+              this.dialogVisible = false;
+            })
+            .catch(err => this.$message.error(err));
+        }
+      },
+      goBack() { history.back(); }
+    }
+  })
+</script>
+</body>
+</html>

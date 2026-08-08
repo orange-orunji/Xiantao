@@ -1,0 +1,371 @@
+/* ==================== 闲淘 桌面模式样式 ====================
+ * 仅在 <html class="xt-desktop"> 时生效（由 js/mode.js 控制）
+ * 所有规则带 html.xt-desktop / html.xt-page-xxx 前缀，与移动端样式互不干扰
+ * 手机模式加载本文件也不会有任何副作用
+ */
+
+/* ---------- 全局布局 ---------- */
+html.xt-desktop body { background: #eef1f5; }
+
+html.xt-desktop #app {
+    height: auto !important;
+    min-height: 100vh;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: transparent;
+}
+
+/* ---------- 顶部导航栏（mode.js 注入） ---------- */
+html.xt-desktop .xt-nav {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+}
+html.xt-desktop .xt-nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 16px;
+}
+html.xt-desktop .xt-logo {
+    color: #FB7299;
+    font-size: 22px;
+    font-weight: 800;
+    margin-right: 20px;
+    text-decoration: none;
+}
+html.xt-desktop .xt-nav-link {
+    color: #555;
+    font-size: 14px;
+    padding: 7px 16px;
+    border-radius: 16px;
+    text-decoration: none;
+    transition: all .15s;
+}
+html.xt-desktop .xt-nav-link:hover { color: #FB7299; background: #fdeef4; }
+html.xt-desktop .xt-nav-link.active { color: #FB7299; background: #fdeef4; font-weight: 600; }
+html.xt-desktop .xt-nav-right { margin-left: auto; }
+html.xt-desktop .xt-nav-post {
+    display: inline-block;
+    color: #fff;
+    background: linear-gradient(135deg, #FB7299, #A879F2);
+    font-size: 14px;
+    padding: 7px 20px;
+    border-radius: 16px;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(251, 114, 153, 0.35);
+    transition: opacity .15s;
+}
+html.xt-desktop .xt-nav-post:hover { opacity: .88; }
+
+/* 隐藏移动端页面自带返回头（发布页保留，因含"发布"按钮） */
+html.xt-desktop .header { display: none !important; }
+html.xt-page-note-edit.xt-desktop .header { display: flex !important; }
+
+/* ---------- 首页 index ---------- */
+html.xt-page-index.xt-desktop .search-bar { border-radius: 12px; margin: 12px 12px 0; }
+html.xt-page-index.xt-desktop .banner { height: 320px; margin: 12px 12px 0; }
+html.xt-page-index.xt-desktop .type-list { margin: 12px 12px 0; border-radius: 12px; }
+html.xt-page-index.xt-desktop .type-box { width: 10%; }
+html.xt-page-index.xt-desktop .type-view { width: 60px; height: 60px; }
+html.xt-page-index.xt-desktop .type-text { font-size: 13px; }
+html.xt-page-index.xt-desktop .goods-section { margin: 12px 12px 0; border-radius: 12px; }
+html.xt-page-index.xt-desktop .goods-h-list {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    overflow: visible;
+    padding: 0 12px 12px;
+}
+html.xt-page-index.xt-desktop .goods-card { width: auto; margin-right: 0; }
+html.xt-page-index.xt-desktop .goods-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+}
+html.xt-page-index.xt-desktop .note-list {
+    flex: none;
+    height: auto;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    align-content: start;
+    justify-content: initial;
+}
+html.xt-page-index.xt-desktop .note-box { width: auto; margin-bottom: 0; transition: transform .15s, box-shadow .15s; }
+html.xt-page-index.xt-desktop .note-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+}
+html.xt-page-index.xt-desktop .skeleton-card { width: auto; }
+html.xt-page-index.xt-desktop .foot { display: none !important; }
+html.xt-page-index.xt-desktop .back-to-top { bottom: 24px; }
+
+/* ---------- 商品列表 goods-list ---------- */
+html.xt-page-goods-list.xt-desktop .sort-bar {
+    margin: 12px 12px 0;
+    height: auto;
+    padding: 8px 0;
+    border-radius: 12px;
+}
+html.xt-page-goods-list.xt-desktop .goods-list {
+    height: auto;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 12px;
+}
+html.xt-page-goods-list.xt-desktop .gl-skeleton {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 12px;
+}
+html.xt-page-goods-list.xt-desktop .gl-skeleton-item { display: block; margin-bottom: 0; }
+html.xt-page-goods-list.xt-desktop .gl-skeleton-img { width: 100%; height: auto; aspect-ratio: 4 / 3; }
+html.xt-page-goods-list.xt-desktop .gl-skeleton-lines { margin-left: 0; padding: 10px 0 0; }
+html.xt-page-goods-list.xt-desktop .goods-box {
+    display: block;
+    padding: 0;
+    margin-bottom: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform .15s, box-shadow .15s;
+}
+html.xt-page-goods-list.xt-desktop .goods-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+}
+html.xt-page-goods-list.xt-desktop .goods-img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    padding: 0;
+    border-radius: 0;
+}
+html.xt-page-goods-list.xt-desktop .goods-img img { width: 100%; height: 100%; border-radius: 0; object-fit: cover; }
+html.xt-page-goods-list.xt-desktop .goods-info { width: 100%; padding: 10px 12px; }
+html.xt-page-goods-list.xt-desktop .back-to-top { bottom: 24px; }
+
+/* ---------- 商品详情 goods-detail ---------- */
+html.xt-page-goods-detail.xt-desktop .top-bar { display: none; }
+html.xt-page-goods-detail.xt-desktop .goods-info-box,
+html.xt-page-goods-detail.xt-desktop .goods-open-time,
+html.xt-page-goods-detail.xt-desktop .goods-want,
+html.xt-page-goods-detail.xt-desktop .goods-flash,
+html.xt-page-goods-detail.xt-desktop .goods-comments {
+    max-width: 960px;
+    margin: 12px auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+html.xt-page-goods-detail.xt-desktop .goods-divider { display: none; }
+html.xt-page-goods-detail.xt-desktop .goods-info-box { padding: 16px; }
+html.xt-page-goods-detail.xt-desktop .goods-images {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+html.xt-page-goods-detail.xt-desktop .goods-images img { width: 100%; border-radius: 8px; display: block; }
+html.xt-page-goods-detail.xt-desktop .goods-open-time { padding: 14px 16px; }
+html.xt-page-goods-detail.xt-desktop .goods-want { padding: 14px 16px; }
+html.xt-page-goods-detail.xt-desktop .goods-flash { padding: 14px 16px; }
+html.xt-page-goods-detail.xt-desktop .copyright { padding-bottom: 24px; }
+
+/* ---------- 笔记详情 note-detail ---------- */
+html.xt-page-note-detail.xt-desktop #app > div { height: auto !important; overflow: visible !important; }
+html.xt-page-note-detail.xt-desktop .note-info-box {
+    height: 480px;
+    max-width: 960px;
+    margin: 12px auto 0;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+html.xt-page-note-detail.xt-desktop .basic,
+html.xt-page-note-detail.xt-desktop .note-text,
+html.xt-page-note-detail.xt-desktop .goods-basic,
+html.xt-page-note-detail.xt-desktop .zan-box,
+html.xt-page-note-detail.xt-desktop .note-comments {
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+html.xt-page-note-detail.xt-desktop .basic { margin-top: 12px; }
+html.xt-page-note-detail.xt-desktop .note-text { margin-top: 12px; padding: 20px; font-size: 15px; line-height: 1.7; }
+html.xt-page-note-detail.xt-desktop .goods-basic { margin-top: 12px; width: auto; }
+html.xt-page-note-detail.xt-desktop .zan-box { margin-top: 12px; width: auto; padding: 20px; }
+html.xt-page-note-detail.xt-desktop .note-comments { margin-top: 12px; }
+html.xt-page-note-detail.xt-desktop .note-divider { display: none; }
+/* 底部点赞栏：从悬浮改为内容末尾静态展示 */
+html.xt-page-note-detail.xt-desktop .foot {
+    position: static;
+    width: auto;
+    height: auto;
+    max-width: 960px;
+    margin: 12px auto 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+    padding: 12px;
+}
+html.xt-page-note-detail.xt-desktop .foot .foot-box { width: auto; }
+
+/* ---------- 发布页 note-edit ---------- */
+html.xt-page-note-edit.xt-desktop .header { max-width: 960px; margin: 0 auto; width: auto; padding: 15px 0; }
+html.xt-page-note-edit.xt-desktop .upload-box,
+html.xt-page-note-edit.xt-desktop .note-title,
+html.xt-page-note-edit.xt-desktop .note-content,
+html.xt-page-note-edit.xt-desktop .note-goods {
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+html.xt-page-note-edit.xt-desktop .upload-box { margin-top: 12px; padding: 20px; }
+html.xt-page-note-edit.xt-desktop .note-title { margin-top: 12px; padding: 10px 0; }
+html.xt-page-note-edit.xt-desktop .note-title input { font-size: 16px; padding: 6px 20px; }
+html.xt-page-note-edit.xt-desktop .note-content { margin-top: 12px; padding: 10px 0; }
+html.xt-page-note-edit.xt-desktop .note-content textarea { font-size: 15px; padding: 6px 20px; }
+html.xt-page-note-edit.xt-desktop .note-goods { margin-top: 12px; }
+html.xt-page-note-edit.xt-desktop .divider { display: none; }
+/* 选择商品弹窗：居中显示 */
+html.xt-page-note-edit.xt-desktop .goods-dialog {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 720px;
+    max-width: 100%;
+    height: 480px;
+    border-radius: 12px 12px 0 0;
+}
+
+/* ---------- 发布商品 goods-edit ---------- */
+html.xt-page-goods-edit.xt-desktop .header {
+    max-width: 960px;
+    margin: 0 auto;
+    width: auto;
+    padding: 15px 0;
+}
+html.xt-page-goods-edit.xt-desktop .upload-box,
+html.xt-page-goods-edit.xt-desktop .form-row,
+html.xt-page-goods-edit.xt-desktop .type-block,
+html.xt-page-goods-edit.xt-desktop .desc-box {
+    max-width: 960px;
+    margin: 12px auto 0;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+html.xt-page-goods-edit.xt-desktop .type-list { padding: 8px 15px 14px; }
+html.xt-page-goods-edit.xt-desktop .type-box { width: 12.5%; }
+html.xt-page-goods-edit.xt-desktop .divider { display: none; }
+html.xt-page-goods-edit.xt-desktop .submit-tip { padding-bottom: 24px; }
+
+/* ---------- 个人主页 / 他人主页 ---------- */
+html.xt-page-info.xt-desktop .basic,
+html.xt-page-other-info.xt-desktop .basic {
+    max-width: 960px;
+    margin: 12px auto 0;
+    height: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+    padding: 20px 24px;
+}
+html.xt-page-info.xt-desktop .introduce,
+html.xt-page-other-info.xt-desktop .introduce {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 12px 24px;
+    color: #666;
+}
+html.xt-page-info.xt-desktop .content,
+html.xt-page-other-info.xt-desktop .content {
+    max-width: 960px;
+    margin: 12px auto;
+    height: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+    padding: 0 16px;
+}
+html.xt-page-info.xt-desktop .el-tabs,
+html.xt-page-info.xt-desktop .el-tab-pane,
+html.xt-page-other-info.xt-desktop .el-tabs,
+html.xt-page-other-info.xt-desktop .el-tab-pane { height: auto !important; }
+html.xt-page-info.xt-desktop .el-tabs__header,
+html.xt-page-other-info.xt-desktop .el-tabs__header { height: auto !important; }
+html.xt-page-info.xt-desktop .el-tabs__content,
+html.xt-page-other-info.xt-desktop .el-tabs__content { height: auto !important; }
+html.xt-page-info.xt-desktop .note-item,
+html.xt-page-other-info.xt-desktop .note-item { width: auto; height: auto; padding: 12px; }
+html.xt-page-info.xt-desktop .logout-btn { width: auto; padding: 0 16px; height: 30px; line-height: 30px; }
+html.xt-page-info.xt-desktop .edit-btn { width: auto; padding: 4px 18px; }
+
+/* ---------- 登录页 login / login2 ---------- */
+html.xt-page-login.xt-desktop .login-container,
+html.xt-page-login2.xt-desktop .login-container {
+    height: auto;
+    max-width: 420px;
+    margin: 64px auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .12);
+    overflow: hidden;
+}
+html.xt-page-login.xt-desktop .content,
+html.xt-page-login2.xt-desktop .content {
+    height: auto;
+    background: #fff;
+    padding: 36px 32px;
+}
+html.xt-page-login.xt-desktop .login-form,
+html.xt-page-login2.xt-desktop .login-form { height: auto; }
+html.xt-page-login.xt-desktop .login-radio,
+html.xt-page-login2.xt-desktop .login-radio { height: auto; }
+
+/* ---------- 消息列表 message ---------- */
+html.xt-page-message.xt-desktop #app > div { height: auto !important; overflow: visible !important; }
+html.xt-page-message.xt-desktop #app > div {
+    max-width: 720px;
+    margin: 12px auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+
+/* ---------- 私信聊天 chat ---------- */
+html.xt-page-chat.xt-desktop body { display: block; }
+html.xt-page-chat.xt-desktop #app {
+    max-width: 860px;
+    height: 78vh;
+    min-height: 480px;
+    margin: 32px auto;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .14);
+    position: relative;
+}
+html.xt-page-chat.xt-desktop .chat-header { position: static; }
+/* 输入栏改为跟随聊天窗口底部（移动端是 fixed 全宽） */
+html.xt-page-chat.xt-desktop .chat-input { position: absolute; bottom: 0; left: 0; width: 100%; }
+
+/* ---------- 资料编辑 info-edit ---------- */
+html.xt-page-info-edit.xt-desktop .edit-container {
+    max-width: 960px;
+    margin: 12px auto;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}

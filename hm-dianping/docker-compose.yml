@@ -9,9 +9,9 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-    container_name: mysql-hmdp
+    container_name: mysql-xiantao
     networks:
-      - hmdp-net
+      - xiantao-net
     restart: always
   redis:
     image: redis:latest
@@ -20,9 +20,9 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    container_name: redis-hmdp
+    container_name: redis-xiantao
     networks:
-      - hmdp-net
+      - xiantao-net
     restart: always
   backend:
     build: ./hm-dianping
@@ -32,12 +32,12 @@ services:
       - mysql
       - redis
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/hmdp?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/xiantao?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Ww2301079399@
       SPRING_APPLICATION_JSON: '{"spring":{"redis":{"sentinel":{"master":"mymaster","nodes":["sentinel1:27000","sentinel2:27001","sentinel3:27002"]},"password":"Ww2301079399@"}}}'
 #    environment:
-#      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/hmdp?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+#      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/xiantao?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
 #      SPRING_DATASOURCE_USERNAME: root
 #      SPRING_DATASOURCE_PASSWORD: Ww2301079399@
 #      SPRING_REDIS_SENTINEL_NODES: sentinel1:27000,sentinel2:27001,sentinel3:27002
@@ -45,7 +45,7 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
     networks:
-      - hmdp-net
+      - xiantao-net
     restart: always
   nginx:
     image: nginx:latest
@@ -53,14 +53,14 @@ services:
       - backend
 #  挂载数据
     volumes:
-      - ./hmdp:/usr/share/nginx/html
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx-1.18.0/html/xiantao:/usr/share/nginx/html
+      - ../nginx-1.18.0/conf/nginx.conf:/etc/nginx/nginx.conf:ro
 #  暴露后端接口
     ports:
       - "80:80"
     networks:
-      - hmdp-net
-    container_name: nginx-hmdp
+      - xiantao-net
+    container_name: nginx-xiantao
     restart: always
 #    挂载数据卷
 volumes:
@@ -68,4 +68,4 @@ volumes:
   redis-data:
 #    定义统一网络
 networks:
-  hmdp-net:
+  xiantao-net:

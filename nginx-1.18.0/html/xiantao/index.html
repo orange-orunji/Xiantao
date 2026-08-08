@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘 - 校园二手闲置交易</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+
+  <link href="./css/index.css" rel="stylesheet">
+  <link href="./css/main.css" rel="stylesheet">
+
+  <style type="text/css">
+      .el-input__inner {
+          border-radius: 20px;
+      }
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="search-bar">
+    <div class="city-btn">同城 <i class="el-icon-arrow-down"></i></div>
+    <div class="search-input">
+      <el-input size="mini" placeholder="搜闲置好物，发现宝藏" v-model="searchText" @keyup.enter.native="doSearch">
+        <i slot="prefix" class="el-input__icon el-icon-search" @click="doSearch" style="cursor:pointer"></i>
+      </el-input>
+    </div>
+    <div class="header-icon" @click="toPage(4)"><i class="el-icon-user"></i></div>
+  </div>
+  <!-- Banner 轮播 -->
+  <div class="banner">
+    <div class="banner-track" :style="{transform: 'translateX(-' + bannerIndex * 100 + '%)'}">
+      <div class="banner-item" v-for="b in banners" :key="b.id" @click="toBannerGoods(b)">
+        <img :src="b.img" :alt="b.title" @error="e => e.target.style.display='none'">
+      </div>
+    </div>
+    <div class="banner-dots">
+      <div class="banner-dot" :class="{active: bannerIndex === i}" v-for="(b, i) in banners" :key="i" @click="bannerTo(i)"></div>
+    </div>
+  </div>
+  <div class="type-list">
+    <div class="type-box" v-for="t in types" :key="t.id" @click="toGoodsList(t.id, t.name)">
+      <div class="type-view"><img :src="'/imgs/' + t.icon" alt=""></div>
+      <div class="type-text">{{t.name}}</div>
+    </div>
+  </div>
+  <!-- 精选好物 -->
+  <div class="goods-section" v-if="goodsList.length > 0">
+    <div class="section-title">精选好物</div>
+    <div class="goods-h-list">
+      <div class="goods-card" v-for="g in goodsList" :key="g.id" @click="toGoodsDetail(g.id)">
+        <div class="goods-card-img">
+          <img :src="g.cover" alt="" loading="lazy" @error="e => e.target.src='/imgs/icons/default-icon.png'">
+        </div>
+        <div class="goods-card-name">{{g.name}}</div>
+        <div class="goods-card-meta">
+          <span class="goods-card-price">{{g.price}}</span>
+          <span class="goods-card-tag" v-if="g.condition">{{g.condition}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note-list">
+    <!-- 首屏骨架屏 -->
+    <div v-if="loading && notes.length === 0" class="skeleton-wrap">
+      <div class="skeleton-card" v-for="i in 6" :key="i">
+        <div class="skeleton-img skeleton-shimmer"></div>
+        <div class="skeleton-line skeleton-shimmer"></div>
+        <div class="skeleton-line short skeleton-shimmer"></div>
+      </div>
+    </div>
+    <!-- 加载更多提示 -->
+    <div v-if="loading && notes.length > 0" style="width:100%;text-align:center;padding:20px;color:#999;">
+      <i class="el-icon-loading"></i> 加载中...
+    </div>
+    <div v-if="loaded && notes.length === 0" style="width:100%;text-align:center;padding:60px;color:#999;">暂无内容</div>
+    <div class="note-box" v-for="b in notes" :key="b.id">
+      <div class="note-img" @click="toGoodsNoteDetail(b)"><img :src="b.img" alt="" loading="lazy" @error="e => e.target.src='/imgs/icons/default-icon.png'"></div>
+      <div class="note-title">{{b.title}}</div>
+      <div class="note-foot">
+        <div class="note-user-icon"><img :src="b.icon || '/imgs/icons/default-icon.png'" alt=""></div>
+        <div class="note-user-name">{{b.name}}</div>
+        <div class="note-liked" @click="addLike(b)">
+          <svg t="1646634642977" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2187" width="14" height="14">
+            <path d="M160 944c0 8.8-7.2 16-16 16h-32c-26.5 0-48-21.5-48-48V528c0-26.5 21.5-48 48-48h32c8.8 0 16 7.2 16 16v448zM96 416c-53 0-96 43-96 96v416c0 53 43 96 96 96h96c17.7 0 32-14.3 32-32V448c0-17.7-14.3-32-32-32H96zM505.6 64c16.2 0 26.4 8.7 31 13.9 4.6 5.2 12.1 16.3 10.3 32.4l-23.5 203.4c-4.9 42.2 8.6 84.6 36.8 116.4 28.3 31.7 68.9 49.9 111.4 49.9h271.2c6.6 0 10.8 3.3 13.2 6.1s5 7.5 4 14l-48 303.4c-6.9 43.6-29.1 83.4-62.7 112C815.8 944.2 773 960 728.9 960h-317c-33.1 0-59.9-26.8-59.9-59.9v-455c0-6.1 1.7-12 5-17.1 69.5-109 106.4-234.2 107-364h41.6z m0-64h-44.9C427.2 0 400 27.2 400 60.7c0 127.1-39.1 251.2-112 355.3v484.1c0 68.4 55.5 123.9 123.9 123.9h317c122.7 0 227.2-89.3 246.3-210.5l47.9-303.4c7.8-49.4-30.4-94.1-80.4-94.1H671.6c-50.9 0-90.5-44.4-84.6-95l23.5-203.4C617.7 55 568.7 0 505.6 0z" p-id="2188" :fill="b.isLike ? '#ff6633' : '#82848a'"></path>
+          </svg>
+          {{b.liked}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <foot-bar :active-btn="1"></foot-bar>
+  <!-- 回到顶部 -->
+  <div class="back-to-top" v-show="showBackTop" @click="scrollToTop">
+    <i class="el-icon-top"></i>
+  </div>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script>
+
+  const app = new Vue({
+    el: "#app",
+    data: {
+      isReachBottom: false,
+      loading: false,
+      loaded: false,
+      showBackTop: false,
+      searchText: '',
+      types: [], // 分类列表
+      notes: [], // 晒物笔记列表
+      current: 1,// note的页码
+      banners: [ // 首页轮播
+        {id: 1, img: '/imgs/banner/banner-1.jpg', title: '数码好物，闲置焕新', keyword: '手机'},
+        {id: 2, img: '/imgs/banner/banner-2.jpg', title: '出行装备，低价捡漏', keyword: '自行车'},
+        {id: 3, img: '/imgs/banner/banner-3.jpg', title: '学霸的书，传承知识', keyword: '书'}
+      ],
+      bannerIndex: 0, // 轮播当前下标
+      goodsList: [], // 精选好物
+      goodsLoading: false,
+    },
+    created() {
+      // 查询类型
+      this.queryTypes();
+      this.queryHotGoodsNotesScroll();
+      this.queryGoods();
+    },
+    mounted() {
+      // 轮播自动播放
+      this._bannerTimer = setInterval(this.bannerNext, 3500);
+      // 整页滚动：手机/桌面模式统一监听页面滚动，实现触底加载更多与回到顶部
+      window.addEventListener('scroll', this.onScroll);
+    },
+    beforeDestroy() {
+      if (this._bannerTimer) clearInterval(this._bannerTimer);
+    },
+    methods: {
+      queryTypes() {
+        axios.get("/goods-type/list")
+          .then(({data}) => {
+            this.types = data;
+          })
+          .catch(err => {
+            this.$message.error(err)
+          })
+      },
+      queryHotGoodsNotesScroll() {
+        this.loading = true;
+        axios.get("/note/hot?current=" + this.current)
+          .then(({data}) => {
+            data.forEach(b => b.img = b.images.split(",")[0]);
+            this.notes = this.notes.concat(data);
+          })
+          .catch(err => {
+            this.$message.error(err)
+          })
+          .finally(() => {
+            this.loading = false;
+            this.loaded = true;
+          })
+      },
+      queryGoods() {
+        this.goodsLoading = true;
+        axios.get("/goods/of/name", {params: {current: 1}})
+          .then(({data}) => {
+            if (!data) return;
+            data.forEach(g => {
+              g.cover = g.images ? g.images.split(',')[0] : '/imgs/icons/default-icon.png';
+            });
+            this.goodsList = data.slice(0, 10);
+          })
+          .catch(err => console.log(err))
+          .finally(() => this.goodsLoading = false)
+      },
+      bannerNext() {
+        this.bannerIndex = (this.bannerIndex + 1) % this.banners.length;
+      },
+      bannerTo(index) {
+        this.bannerIndex = index;
+      },
+      toBannerGoods(b) {
+        location.href = "/goods-list.html?search=" + encodeURIComponent(b.keyword);
+      },
+      toGoodsDetail(id) {
+        location.href = "/goods-detail.html?id=" + id;
+      },
+      addLike(b) {
+        // 乐观更新：先改 UI，失败再回滚
+        // 数据未加载成功时（无 id）直接忽略，避免发出 /note/like/undefined
+        if (!b || !b.id || b._likePending) return;
+        var oldLike = b.isLike;
+        var oldCount = b.liked;
+        b.isLike = !b.isLike;
+        b.liked = b.isLike ? (b.liked || 0) + 1 : (b.liked || 0) - 1;
+        b._likePending = true;
+        axios.put("/note/like/" + b.id)
+          .then(() => {})
+          .catch(err => {
+            b.isLike = oldLike;
+            b.liked = oldCount;
+            this.$message.error(err);
+          })
+          .finally(() => b._likePending = false);
+      },
+      onScroll() {
+        // 整页滚动：直接取页面级滚动数据（手机/桌面模式统一）
+        var scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+        var offsetHeight = window.innerHeight;
+        var scrollHeight = document.documentElement.scrollHeight;
+        this.showBackTop = scrollTop > 300;
+        // 触底且不在加载中才拉下一页，避免重复请求
+        if (scrollTop + offsetHeight + 1 >= scrollHeight) {
+          if (!this.isReachBottom && !this.loading) {
+            this.isReachBottom = true;
+            this.current++;
+            this.queryHotGoodsNotesScroll();
+          }
+        } else {
+          this.isReachBottom = false;
+        }
+      },
+      scrollToTop() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+      toGoodsList(id, name) {
+        location.href = "/goods-list.html?type=" + id + "&name=" + name
+      },
+      toGoodsNoteDetail(b) {
+        location.href = "/note-detail.html?id=" + b.id
+      },
+      doSearch() {
+        var keyword = this.searchText.trim();
+        if (!keyword) {
+          this.$message.warning("请输入搜索关键词");
+          return;
+        }
+        location.href = "/goods-list.html?search=" + encodeURIComponent(keyword);
+      }
+    }
+  })
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘 - 发布闲置</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/goods-edit.css" rel="stylesheet">
+
+  <style type="text/css">
+
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-cancel-btn" @click="goBack">取消</div>
+    <div class="header-title">发布闲置</div>
+    <div class="header-commit">
+      <div class="header-commit-btn" @click="submitGoods">发布</div>
+    </div>
+  </div>
+  <!-- 图片上传 -->
+  <div class="upload-box">
+    <input type="file" @change="fileSelected" name="file" ref="fileInput" style="display: none">
+    <div class="upload-btn" @click="openFileDialog">
+      <i class="el-icon-camera"></i>
+      <div style="font-size: 12px;line-height: 12px">上传照片</div>
+    </div>
+    <div class="pic-list">
+      <div class="pic-box" v-for="(f,i) in fileList" :key="i">
+        <img :src="f" alt="">
+        <i class="el-icon-close" @click="deletePic(i)"></i>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <!-- 商品名称 -->
+  <div class="form-row">
+    <div class="form-label">商品名称 <i>*</i></div>
+    <input v-model="goods.name" type="text" placeholder="如：罗技 G102 游戏鼠标" maxlength="50">
+  </div>
+  <div class="divider"></div>
+  <!-- 价格 -->
+  <div class="form-row">
+    <div class="form-label">出售价格 <i>*</i></div>
+    <div class="price-input">
+      <span class="price-symbol">￥</span>
+      <input v-model="goods.price" type="number" min="0" step="1" placeholder="输入整数价格（元）">
+    </div>
+  </div>
+  <div class="divider"></div>
+  <!-- 分类 -->
+  <div class="type-block">
+    <div class="form-label" style="padding: 12px 15px 4px;">商品分类 <i>*</i></div>
+    <div class="type-list">
+      <div class="type-box" :class="{active: goods.typeId === t.id}" v-for="t in types" :key="t.id" @click="goods.typeId = t.id">
+        <div class="type-view"><img :src="'/imgs' + t.icon" alt="" @error="e => e.target.src='/imgs/types/mjmj.png'"></div>
+        <div class="type-text">{{t.name}}</div>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <!-- 成色 -->
+  <div class="form-row">
+    <div class="form-label">成色</div>
+    <input v-model="goods.condition" type="text" placeholder="如：95新、轻微使用痕迹" maxlength="20">
+  </div>
+  <div class="divider"></div>
+  <!-- 区域 -->
+  <div class="form-row">
+    <div class="form-label">所在区域</div>
+    <input v-model="goods.area" type="text" placeholder="如：大学城" maxlength="20">
+  </div>
+  <div class="divider"></div>
+  <!-- 交易地址 -->
+  <div class="form-row">
+    <div class="form-label">交易地址</div>
+    <input v-model="goods.address" type="text" placeholder="如：xx校区北门（支持自提/当面交易）" maxlength="50">
+  </div>
+  <div class="divider"></div>
+  <!-- 描述 -->
+  <div class="desc-box">
+    <div class="form-label">宝贝描述</div>
+    <textarea v-model="goods.description" placeholder="说说它的使用情况、入手渠道、转让原因..." maxlength="500"></textarea>
+  </div>
+  <div class="divider"></div>
+  <div class="submit-tip">
+    <p>发布即代表同意平台交易规则，请如实描述商品情况</p>
+  </div>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script>
+
+  const app = new Vue({
+    el: "#app",
+    data() {
+      return {
+        util,
+        fileList: [], // 商品图片列表
+        types: [], // 商品分类
+        goods: {
+          name: "",
+          typeId: null,
+          price: "",
+          condition: "",
+          area: "",
+          address: "",
+          description: "",
+          // 默认坐标（同城中心），保持与列表页默认一致
+          x: 120.149993,
+          y: 30.334229
+        }
+      }
+    },
+    created() {
+      this.checkLogin();
+      this.queryTypes();
+    },
+    methods: {
+      queryTypes() {
+        axios.get("/goods-type/list")
+          .then(({data}) => this.types = data)
+          .catch(err => this.$message.error(err))
+      },
+      submitGoods() {
+        // 校验必填项
+        if (!this.goods.name || !this.goods.name.trim()) {
+          this.$message.error("请填写商品名称");
+          return;
+        }
+        if (!this.goods.price || Number(this.goods.price) <= 0) {
+          this.$message.error("请填写正确的出售价格");
+          return;
+        }
+        if (!this.goods.typeId) {
+          this.$message.error("请选择商品分类");
+          return;
+        }
+        if (this.fileList.length === 0) {
+          this.$message.error("请至少上传一张商品图片");
+          return;
+        }
+        var params = Object.assign({}, this.goods, {
+          price: parseInt(this.goods.price, 10),
+          images: this.fileList.join(",")
+        });
+        axios.post("/goods", params)
+          .then(({data}) => {
+            this.$message.success("发布成功！");
+            setTimeout(() => location.href = "/goods-detail.html?id=" + data, 400);
+          })
+          .catch(err => this.$message.error(err))
+      },
+      openFileDialog() {
+        this.$refs.fileInput.click();
+      },
+      fileSelected() {
+        let file = this.$refs.fileInput.files[0];
+        if (!file) return;
+        let formData = new FormData();
+        formData.append("file", file);
+        const config = {
+          headers: {"Content-Type": "multipart/form-data;boundary=" + new Date().getTime()}
+        };
+        axios
+          .post("/upload/note", formData, config)
+          .then(({data}) => this.fileList.push('/imgs' + data))
+          .catch(this.$message.error);
+        // 允许连续选择同一文件
+        this.$refs.fileInput.value = "";
+      },
+      deletePic(i) {
+        // 上传接口返回的路径以 /notes 开头，删除时需去掉展示前缀 /imgs
+        let realPath = this.fileList[i].replace(/^\/imgs/, "");
+        axios.get("/upload/note/delete?name=" + encodeURIComponent(realPath))
+          .then(() => this.fileList.splice(i, 1))
+          .catch(this.$message.error)
+      },
+      checkLogin() {
+        // 获取token
+        let token = sessionStorage.getItem("token");
+        if (!token) {
+          location.href = "login.html"
+        }
+        // 查询用户信息，验证token有效性
+        axios.get("/user/me")
+          .then()
+          .catch(err => {
+            this.$message.error(err);
+            setTimeout(() => location.href = "login.html", 200)
+          })
+      },
+      goBack() {
+        history.back();
+      }
+    }
+  })
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 --1.参数列表
---seckill:stock:11
-local voucherId = ARGV[1]
+--flash:stock:11
+local flashId = ARGV[1]
 --用户id
 local userId = ARGV[2]
 --订单id
@@ -8,9 +8,9 @@ local orderId = ARGV[3]
 
 --2.定义key值
 --库存key
-local stockKey = "seckill:stock:" .. voucherId
+local stockKey = "flash:stock:" .. flashId
 --订单key
-local orderKey = "seckill:order:" .. voucherId
+local orderKey = "flash:order:" .. flashId
 
 --3.判断库存是否充足
 local stock = tonumber(redis.call('get',stockKey))

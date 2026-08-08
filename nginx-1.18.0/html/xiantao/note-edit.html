@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/note-edit.css" rel="stylesheet">
+
+  <style type="text/css">
+
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-cancel-btn" @click="goBack">取消</div>
+    <div class="header-title">&nbsp;&nbsp;发晒物<i class="el-icon-info"></i></div>
+    <div class="header-commit">
+      <div class="header-commit-btn" @click="submitGoodsNote">发布</div>
+    </div>
+  </div>
+  <div class="upload-box">
+    <input type="file" @change="fileSelected" name="file" ref="fileInput" style="display: none">
+    <div class="upload-btn" @click="openFileDialog">
+      <i class="el-icon-camera"></i>
+      <div style="font-size: 12px;line-height: 12px">上传照片</div>
+    </div>
+    <div class="pic-list">
+      <div class="pic-box" v-for="(f,i) in fileList" :key="i">
+        <img :src="f" alt="">
+        <i class="el-icon-close" @click="deletePic(i)"></i>
+      </div>
+    </div>
+  </div>
+  <div class="note-title">
+    <input v-model="params.title" type="text" placeholder="填写标题更容易上首页哦~">
+  </div>
+  <div class="note-content">
+    <textarea v-model="params.content" placeholder="晒一晒你的闲置好物，说说它的故事和使用感受..."></textarea>
+  </div>
+  <div class="divider"></div>
+  <div class="note-goods" @click="showDialog=true">
+    <div class="goods-left">关联商品</div>
+    <div v-if="selectedGoods.name">{{selectedGoods.name}}</div>
+    <div v-else>去选择&nbsp;<i class="el-icon-arrow-right"></i></div>
+  </div>
+  <div class="mask" v-show="showDialog" @click="showDialog=false"></div>
+
+  <transition name="el-zoom-in-bottom">
+    <div class="goods-dialog" v-show="showDialog">
+      <div class="note-goods">
+        <div class="goods-left">关联商品</div>
+      </div>
+      <div class="search-bar">
+        <div class="city-select">同城 <i class="el-icon-arrow-down"></i></div>
+        <div class="search-input">
+          <i class="el-icon-search" @click="queryGoodss"></i>
+          <input v-model="goodsName" type="text" placeholder="搜索商品名称">
+        </div>
+      </div>
+      <div class="goods-list">
+        <div v-for="s in goodss" class="goods-item" @click="selectGoods(s)">
+          <div class="goods-name">{{s.name}}</div>
+          <div>{{s.area}}</div>
+        </div>
+        <div v-if="!goodss.length" style="text-align:center;color:#999;padding:40px 0;">没有找到相关商品</div>
+      </div>
+      <div class="goods-dialog-tip" @click="toPublishGoods">
+        没有合适的商品？去发布一个 <i class="el-icon-arrow-right"></i>
+      </div>
+    </div>
+  </transition>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script>
+
+  const app = new Vue({
+    el: "#app",
+    data() {
+      return {
+        util,
+        fileList: [], // 文件列表
+        params: {},
+        showDialog: false, //
+        goodss: [], // 商品信息
+        goodsName: "", //商品名称
+        selectedGoods: {}, // 选中的商品
+      }
+    },
+    created() {
+      this.checkLogin();
+      this.queryGoodss();
+    },
+    methods: {
+      queryGoodss() {
+        axios.get("/goods/of/name?name=" + this.goodsName)
+          .then(({data}) => this.goodss = data)
+          .catch(this.$message.error)
+      },
+      selectGoods(s) {
+        this.selectedGoods = s;
+        this.showDialog = false;
+      },
+      toPublishGoods() {
+        // 跳转发布商品页，发布完成后可返回本页重新选择关联
+        location.href = "/goods-edit.html";
+      },
+      submitGoodsNote() {
+        let {...data} = this.params;
+        data.images = this.fileList.join(",");
+        data.goodsId = this.selectedGoods.id;
+        axios.post("/note", data)
+          .then(resp => location.href = "/info.html")
+          .catch(this.$message.error)
+      },
+      openFileDialog() {
+        this.$refs.fileInput.click();
+      },
+      fileSelected() {
+        let file = this.$refs.fileInput.files[0];
+        let formData = new FormData();
+        formData.append("file", file);
+        const config = {
+          headers: {"Content-Type": "multipart/form-data;boundary=" + new Date().getTime()}
+        };
+        axios
+          .post("/upload/note", formData, config)
+          .then(({data}) => this.fileList.push('/imgs' + data))
+          .catch(this.$message.error);
+      },
+      deletePic(i) {
+        axios.get("/upload/note/delete?name=" + this.fileList[i])
+          .then(() => this.fileList.splice(i, 1))
+          .catch(this.$message.error)
+      },
+      checkLogin() {
+        // 获取token
+        let token = sessionStorage.getItem("token");
+        if (!token) {
+          location.href = "login.html"
+        }
+        // 查询用户信息
+        axios.get("/user/me")
+          .then()
+          .catch(err => {
+            this.$message.error(err);
+            setTimeout(() => location.href = "login.html", 200)
+          })
+      },
+      goBack() {
+        history.back();
+      },
+      handleRemove(file) {
+        console.log(file);
+      }
+    },
+
+  })
+</script>
+</body>
+</html>

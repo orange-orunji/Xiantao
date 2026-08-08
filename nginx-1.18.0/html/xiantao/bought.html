@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘 - 已买到</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/info.css" rel="stylesheet">
+  <style>
+    .order-tabs { display: flex; background: #fff; border-bottom: 1px solid #f1f1f1; }
+    .order-tab { flex: 1; text-align: center; font-size: 13px; padding: 10px 0; cursor: pointer; color: #666; }
+    .order-tab.active { color: #f63; font-weight: bold; border-bottom: 2px solid #f63; }
+    .list-area { height: calc(100% - 84px); overflow-y: auto; background: #f1f1f1; }
+    .order-card { background: #fff; margin: 8px; border-radius: 6px; padding: 10px; cursor: pointer; }
+    .order-head { display: flex; justify-content: space-between; font-size: 12px; color: #999; padding-bottom: 8px; border-bottom: 1px dashed #eee; }
+    .order-status { color: #07c160; font-weight: bold; }
+    .order-body { display: flex; padding-top: 10px; }
+    .goods-img { text-align: center; padding: 5px; width: 84px; height: 84px; background: #f2f3f5; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center; }
+    .goods-img img { width: 74px; height: 74px; border-radius: 5px; }
+    .goods-info { flex: 1; min-width: 0; margin-left: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+    .goods-title { font-size: 14px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .goods-flash { font-size: 12px; color: #f63; margin-top: 2px; }
+    .order-price { color: #f63; font-weight: bold; font-size: 15px; }
+    .order-time { font-size: 11px; color: #bbb; }
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></div>
+    <div class="header-title">已买到</div>
+    <div class="header-search"></div>
+  </div>
+  <div class="order-tabs">
+    <div v-for="t in tabs" :key="t.value" class="order-tab" :class="{active: currentTab === t.value}" @click="switchTab(t.value)">{{t.label}}</div>
+  </div>
+  <div class="list-area">
+    <div v-if="filtered.length === 0" style="text-align:center;color:#999;padding:80px 0;">
+      <div style="font-size:40px;margin-bottom:10px;"><i class="el-icon-shopping-bag-2"></i></div>
+      还没有买过东西
+    </div>
+    <div class="order-card" v-for="o in filtered" :key="o.orderId" @click="toDetail(o.goods ? o.goods.id : '')">
+      <div class="order-head">
+        <span>订单号：{{o.orderId}}</span>
+        <span class="order-status">{{statusText(o.status)}}</span>
+      </div>
+      <div class="order-body" v-if="o.goods">
+        <div class="goods-img"><img :src="o.goods.images.split(',')[0]" alt="" loading="lazy" @error="e => e.target.src='/imgs/icons/default-icon.png'"></div>
+        <div class="goods-info">
+          <div class="goods-title">{{o.goods.name}}</div>
+          <div class="goods-flash" v-if="o.flashTitle">捡漏：{{o.flashTitle}}</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <div class="order-price" v-if="o.flashPrice != null">￥{{util.formatPrice(o.flashPrice)}}</div>
+            <div class="order-price" v-else>￥{{o.goods.price}}</div>
+            <div class="order-time">{{formatTime(o.createTime)}}</div>
+          </div>
+        </div>
+      </div>
+      <div class="order-body" v-else style="color:#999;font-size:13px;">商品信息已失效</div>
+    </div>
+  </div>
+  <foot-bar :active-btn="4"></foot-bar>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script>
+  const app = new Vue({
+    el: "#app",
+    data: {
+      util,
+      orders: [],
+      currentTab: "all",
+      tabs: [
+        {label: "全部", value: "all"},
+        {label: "已支付", value: "2"},
+        {label: "已完成", value: "3"}
+      ]
+    },
+    computed: {
+      // 已买到 = 已支付(2) + 已完成(3) 的订单
+      bought() {
+        return (this.orders || []).filter(o => o.status === 2 || o.status === 3);
+      },
+      filtered() {
+        if (this.currentTab === "all") return this.bought;
+        return this.bought.filter(o => o.status === parseInt(this.currentTab));
+      }
+    },
+    created() {
+      this.queryOrders();
+    },
+    methods: {
+      queryOrders() {
+        axios.get("/flash-order/mine")
+          .then(({data}) => this.orders = data || [])
+          .catch(() => {})
+      },
+      switchTab(v) {
+        this.currentTab = v;
+      },
+      toDetail(id) {
+        if (id) location.href = "/goods-detail.html?id=" + id;
+      },
+      goBack() { history.back(); },
+      statusText(s) {
+        return {2: "已支付", 3: "已完成"}[s] || "未知";
+      },
+      formatTime(t) {
+        if (!t) return "";
+        let d = new Date(t), now = new Date(), diff = now - d;
+        if (diff < 60000) return "刚刚";
+        if (diff < 3600000) return Math.floor(diff / 60000) + "分钟前";
+        if (diff < 86400000) return Math.floor(diff / 3600000) + "小时前";
+        return (d.getMonth()+1)+"月"+d.getDate()+"日";
+      }
+    }
+  })
+</script>
+</body>
+</html>

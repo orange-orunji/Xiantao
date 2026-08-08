@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+
+  <link href="./css/goods-list.css" rel="stylesheet">
+  <link href="./css/main.css" rel="stylesheet">
+
+  <style type="text/css">
+
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></div>
+    <div class="header-title">{{isSearchMode ? '搜索: ' + searchKeyword : typeName}}</div>
+    <div class="header-search">
+      <i class="el-icon-search"></i>
+    </div>
+  </div>
+  <div class="sort-bar" v-if="!isSearchMode">
+    <div class="sort-item">
+      <el-dropdown trigger="click" @command="handleCommand">
+      <span class="el-dropdown-link">
+        {{typeName}}<i class="el-icon-arrow-down el-icon--right"></i>
+      </span>
+        <el-dropdown-menu slot="dropdown">
+          <el-dropdown-item v-for="t in types" :key="t.id" :command="t">
+            {{t.name}}
+          </el-dropdown-item>
+        </el-dropdown-menu>
+      </el-dropdown>
+    </div>
+    <div class="sort-item" :class="{'sort-active': params.sortBy === ''}" @click="sortAndQuery('')">
+      距离 <i class="el-icon-arrow-down el-icon--right"></i>
+    </div>
+    <div class="sort-item" :class="{'sort-active': params.sortBy === 'comments'}" @click="sortAndQuery('comments')">
+      人气 <i class="el-icon-arrow-down el-icon--right"></i>
+    </div>
+    <div class="sort-item" :class="{'sort-active': params.sortBy === 'score'}" @click="sortAndQuery('score')">
+      评分 <i class="el-icon-arrow-down el-icon--right"></i>
+    </div>
+  </div>
+  <div class="goods-list" @scroll="onScroll">
+    <!-- 首屏骨架屏 -->
+    <div v-if="loading && goodss.length === 0" class="gl-skeleton">
+      <div class="gl-skeleton-item" v-for="i in 4" :key="i">
+        <div class="gl-skeleton-img skeleton-shimmer"></div>
+        <div class="gl-skeleton-lines">
+          <div class="gl-skeleton-line skeleton-shimmer"></div>
+          <div class="gl-skeleton-line short skeleton-shimmer"></div>
+        </div>
+      </div>
+    </div>
+    <!-- 加载更多提示 -->
+    <div v-if="loading && goodss.length > 0" style="text-align:center;padding:20px;color:#999;">
+      <i class="el-icon-loading"></i> 加载中...
+    </div>
+    <div v-if="!loading && goodss.length === 0" style="text-align:center;padding:60px;color:#999;">暂无相关商品</div>
+    <div class="goods-box" v-for="s in goodss" :key="s.id" @click="toDetail(s.id)">
+      <div class="goods-img"><img :src="s.images" alt="" loading="lazy" @error="e => e.target.src='/imgs/icons/default-icon.png'"></div>
+      <div class="goods-info">
+        <div class="goods-title goods-item">{{s.name}}</div>
+        <div class="goods-rate goods-item" >
+          <el-rate
+              disabled v-model="s.score/10"
+              text-color="#F63"
+              show-score
+          ></el-rate>
+          <span>{{s.comments}}条</span>
+        </div>
+        <div class="goods-area goods-item">
+          <span>{{s.area}}</span>
+          <span v-if="s.distance">{{s.distance < 1000 ? s.distance.toFixed(1) + 'm' : (s.distance/1000).toFixed(1) + 'km'}}</span>
+        </div>
+        <div class="goods-avg goods-item">￥{{s.price}}</div>
+        <div class="goods-address goods-item">
+          <i class="el-icon-map-location"></i>
+          <span>{{s.address}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- 回到顶部 -->
+  <div class="back-to-top" v-show="showBackTop" @click="scrollToTop">
+    <i class="el-icon-top"></i>
+  </div>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script>
+
+  const app = new Vue({
+    el: "#app",
+    data: {
+      util,
+      isSearchMode: false,
+      searchKeyword: '',
+      isReachBottom: false,
+      loading: false,
+      showBackTop: false,
+      types: [], // 类型列表
+      goodss: [], // 商品列表
+      typeName: "",
+      params:{
+        typeId: 0,
+        current: 1,
+        sortBy: "",
+        x: 120.149993, // 经度
+        y: 30.334229 // 纬度
+      }
+    },
+    created() {
+      // 获取参数
+      var search = util.getUrlParam("search");
+      if (search) {
+        // 搜索模式
+        this.isSearchMode = true;
+        this.searchKeyword = decodeURIComponent(search);
+        this.typeName = search;
+        this.querySearchGoodss();
+      } else {
+        // 分类模式
+        this.params.typeId = util.getUrlParam("type");
+        this.typeName = util.getUrlParam("name");
+        // 查询类型
+        this.queryTypes();
+        // 查询商品
+        this.queryGoodss();
+      }
+      // 桌面模式下无限滚动改监听页面滚动
+      if (window.XtMode && XtMode.isDesktop()) {
+        window.addEventListener('scroll', this.onScroll);
+      }
+    },
+    methods: {
+      queryTypes() {
+        axios.get("/goods-type/list")
+          .then(({data}) => {
+            this.types = data;
+          })
+          .catch(err => {
+            console.log(err);
+            this.$message.error(err)
+          })
+      },
+      querySearchGoodss() {
+        this.loading = true;
+        axios.get("/goods/of/name", {
+            params: { name: this.searchKeyword, current: this.params.current }
+          })
+          .then(({data}) => {
+            if (!data) return;
+            data.forEach(s => s.images = s.images.split(',')[0]);
+            this.goodss = this.goodss.concat(data);
+          })
+          .catch(err => {
+            console.log(err);
+            this.$message.error(err);
+          })
+          .finally(() => this.loading = false)
+      },
+      queryGoodss() {
+        this.loading = true;
+        axios.get("/goods/of/type", {
+            params: this.params
+          })
+          .then(({data}) => {
+            if (!data) return;
+            data.forEach(s => s.images = s.images.split(',')[0]);
+            this.goodss = this.goodss.concat(data);
+          })
+          .catch(err => {
+            console.log(err);
+            this.$message.error(err)
+          })
+          .finally(() => this.loading = false)
+      },
+      handleCommand(t) {
+        location.href = "/goods-list.html?type="+t.id+"&name="+t.name;
+      },
+      sortAndQuery(sortBy) {
+        this.params.sortBy = sortBy;
+        this.params.current = 1;
+        this.goodss = [];
+        this.queryGoodss();
+      },
+      goBack() {
+        history.back();
+      },
+      toDetail(id) {
+        location.href = "/goods-detail.html?id="+id
+      },
+      onScroll(e) {
+        // 桌面模式下是页面级滚动（mode.js 提供 window 滚动数据）
+        var isDesktop = window.XtMode && XtMode.isDesktop();
+        var scrollTop, offsetHeight, scrollHeight;
+        if (isDesktop) {
+          var s = XtMode.getScroll();
+          scrollTop = s.top;
+          offsetHeight = s.view;
+          scrollHeight = s.total;
+        } else {
+          scrollTop = e.target.scrollTop;
+          offsetHeight = e.target.offsetHeight;
+          scrollHeight = e.target.scrollHeight;
+        }
+        this.showBackTop = scrollTop > 300;
+        // 触底且不在加载中才拉下一页，避免重复请求
+        if (scrollTop + offsetHeight + 1 >= scrollHeight) {
+          if (!this.isReachBottom && !this.loading) {
+            this.isReachBottom = true
+            this.params.current++
+            if (this.isSearchMode) {
+              this.querySearchGoodss();
+            } else {
+              this.queryGoodss();
+            }
+          }
+        } else {
+          this.isReachBottom = false
+        }
+      },
+      scrollToTop() {
+        if (window.XtMode && XtMode.isDesktop()) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        let el = document.querySelector('.goods-list');
+        if (el) {
+          el.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      },
+    }
+  })
+</script>
+</body>
+</html>

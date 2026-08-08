@@ -1,0 +1,144 @@
+/* ========== 全局设计语言（主题变量：B站粉紫风） ========== */
+:root {
+    --primary: #FB7299;            /* 主色：B站粉 */
+    --primary-light: #A879F2;      /* 渐变紫 */
+    --primary-grad: linear-gradient(135deg, #FB7299, #A879F2); /* 粉紫渐变 */
+    --primary-soft: #fdeef4;       /* 浅粉底 */
+    --bg-page: #F7F8FA;            /* 页面底色 */
+    --card-bg: #ffffff;            /* 卡片底色 */
+    --text-main: #18191C;          /* 主文字 */
+    --text-sub: #61666D;           /* 次文字 */
+    --text-muted: #9499A0;         /* 弱文字 */
+    --radius-card: 14px;           /* 卡片圆角 */
+    --shadow-card: 0 4px 16px rgba(251, 114, 153, 0.10); /* 卡片阴影 */
+}
+
+html {
+    font-size: 12px;
+    width: 100%;
+}
+body{
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+html,body,#app{
+    height: 100%;
+}
+
+.el-tabs__item {
+    font-size: 14px;
+    font-weight: bold;
+}
+.el-tabs__active-bar {
+    height: 4px;
+    background-image: linear-gradient(to right, #FB7299, #A879F2);
+    border-radius: 2px;
+}
+.foot {
+    width: 100%;
+    height: 8%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+    position: fixed; /* 手机模式：底部栏固定在视口底部，不随内容滚动 */
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 600;
+}
+/* 桌面模式恢复原布局（由 desktop.css 具体覆盖各页面） */
+html.xt-desktop .foot {
+    position: absolute;
+}
+.foot .add-btn {
+    width: 40px;
+    height: 40px;
+    box-shadow: 0 4px 12px rgba(251, 114, 153, 0.35);
+    border-radius: 20px;
+}
+.foot-box{
+    width: 20%;
+    color: #82848a;
+    text-align: center;
+}
+.msg-box {
+    position: relative;
+}
+.msg-badge {
+    position: absolute;
+    top: 2px;
+    right: 12px;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 10px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 8px;
+    padding: 0 5px;
+    font-weight: bold;
+}
+.foot-view {
+    font-size: 26px;
+}
+.foot-text{
+    font-size: 8px;
+    margin-top: -4px;
+}
+.foot-text, .foot-view{
+    text-align: center;
+}
+.active{
+    color: var(--primary);
+}
+
+/*element-ui的评价星星间隙*/
+.el-rate__icon {
+    margin-right: 0;
+}
+
+/* 骨架屏（全站通用） */
+.skeleton-shimmer {
+    background: linear-gradient(90deg, #eee 25%, #f7f7f7 37%, #eee 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.2s ease infinite;
+}
+@keyframes shimmer {
+    0%   { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+/* 商品列表页骨架 */
+.gl-skeleton {
+    padding: 10px;
+}
+.gl-skeleton-item {
+    display: flex;
+    background: #fff;
+    border-radius: var(--radius-card);
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-card);
+}
+.gl-skeleton-img {
+    width: 95px;
+    height: 95px;
+    border-radius: 8px;
+    flex: none;
+}
+.gl-skeleton-lines {
+    flex: 1;
+    margin-left: 12px;
+    padding-top: 6px;
+}
+.gl-skeleton-line {
+    height: 14px;
+    border-radius: 7px;
+    margin-bottom: 12px;
+}
+.gl-skeleton-line.short {
+    width: 60%;
+}
+

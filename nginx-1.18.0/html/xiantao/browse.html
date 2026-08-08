@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘 - 浏览足迹</title>
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/info.css" rel="stylesheet">
+  <style>
+    .list-area { height: calc(100% - 44px); overflow-y: auto; background: #f1f1f1; }
+    .goods-box { display: flex; padding: 10px; margin-bottom: 5px; border-radius: 3px; background-color: #fff; cursor: pointer; }
+    .goods-img { text-align: center; padding: 5px; width: 105px; height: 105px; background: #f2f3f5; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center; }
+    .goods-img img { width: 95px; height: 95px; border-radius: 5px; }
+    .goods-info { flex: 1; min-width: 0; margin-left: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+    .goods-title { font-weight: bold; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .goods-price { color: #f63; font-weight: bold; font-size: 16px; }
+    .goods-meta { color: #999; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .status-tag { font-size: 11px; padding: 1px 8px; border-radius: 8px; background: #f1f1f1; color: #666; }
+    .status-tag.on { background: #e8f7ee; color: #07c160; }
+    .status-tag.off { background: #fee; color: #f63; }
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></div>
+    <div class="header-title">浏览足迹</div>
+    <div class="header-search"></div>
+  </div>
+  <div class="list-area">
+    <div v-if="list.length === 0" style="text-align:center;color:#999;padding:80px 0;">
+      <div style="font-size:40px;margin-bottom:10px;"><i class="el-icon-view"></i></div>
+      暂无浏览记录，去逛逛吧
+    </div>
+    <div class="goods-box" v-for="g in list" :key="g.id" @click="toDetail(g.id)">
+      <div class="goods-img"><img :src="g.images.split(',')[0]" alt="" loading="lazy" @error="e => e.target.src='/imgs/icons/default-icon.png'"></div>
+      <div class="goods-info">
+        <div class="goods-title">{{g.name}}</div>
+        <div class="goods-price">￥{{g.price}}</div>
+        <div class="goods-meta">
+          <span>{{g.area}}</span>
+          <span class="status-tag" :class="g.status === 1 ? 'on' : 'off'">{{statusText(g.status)}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <foot-bar :active-btn="4"></foot-bar>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script>
+  const app = new Vue({
+    el: "#app",
+    data: { list: [] },
+    created() {
+      this.queryBrowse();
+    },
+    methods: {
+      queryBrowse() {
+        axios.get("/goods/browse/list")
+          .then(({data}) => this.list = data || [])
+          .catch(() => {})
+      },
+      toDetail(id) {
+        location.href = "/goods-detail.html?id=" + id;
+      },
+      goBack() { history.back(); },
+      statusText(s) {
+        return s === 1 ? "在售" : (s === 2 ? "已售" : "下架");
+      }
+    }
+  })
+</script>
+</body>
+</html>

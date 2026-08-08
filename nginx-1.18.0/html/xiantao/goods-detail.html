@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+
+  <link href="./css/goods-detail.css" rel="stylesheet">
+  <link href="./css/main.css" rel="stylesheet">
+
+  <style type="text/css">
+
+  </style>
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></div>
+    <div class="header-title"></div>
+    <div class="header-share">...</div>
+  </div>
+  <div class="top-bar"></div>
+  <div class="goods-info-box">
+    <div class="goods-title">{{goods.name}}</div>
+    <div class="goods-rate">
+      <el-rate
+          disabled v-model="goods.score/10"
+          text-color="#F63"
+          show-score
+      ></el-rate>
+      <span>卖家信用</span>
+    </div>
+    <div class="goods-rate-info">
+      <span>成交:{{goods.sold || 0}}</span>
+      <span style="margin:0 8px">区域:{{goods.area}}</span>
+      <span>状态:{{goods.status === 1 ? '在售' : (goods.status === 2 ? '已售' : '下架')}}</span>
+    </div>
+    <div class="goods-rank">
+      <img src="/imgs/bd.png" width="63" height="20" alt="">
+      <span>同城闲置好物</span>
+      <div><i class="el-icon-arrow-right"></i></div>
+    </div>
+    <div class="goods-images">
+      <div v-for="(s,i) in goods.images" :key="i">
+        <img :src="s" alt="" loading="lazy" @error="e => e.target.src='/imgs/icons/default-icon.png'">
+      </div>
+    </div>
+    <div class="goods-address">
+      <div><i class="el-icon-map-location"></i></div>
+      <span>{{goods.address}}</span>
+      <div style="width: 10px; flex-grow: 2; text-align: center; color: #e1e2e3">|</div>
+      <div style="margin: 0 5px"><img src="https://p0.meituan.net/travelcube/bf684aa196c870810655e45b1e52ce843484.png@24w_16h_40q" alt=""></div>
+      <div><img src="https://p0.meituan.net/travelcube/9277ace32123e0c9f59dedf4407892221566.png@24w_24h_40q" alt=""></div>
+    </div>
+  </div>
+  <div class="goods-divider"></div>
+  <div class="goods-open-time">
+    <span><i class="el-icon-watch"></i></span>
+    <div>成色</div>
+    <div>{{goods.condition}}</div>
+    <span class="line-right">查看详情 <i class="el-icon-arrow-right"></i></span>
+  </div>
+  <div class="goods-divider"></div>
+  <div class="goods-want" style="display:flex;align-items:center;padding:14px 15px;background:#fff;">
+    <div @click="wantGoods" style="flex-shrink:0;padding:7px 22px;border-radius:18px;background:#ff6633;color:#fff;font-size:14px;cursor:pointer;">
+      {{goods.wanted ? '已想要 ✓' : '我想要'}}
+    </div>
+    <div style="margin-left:14px;display:flex;align-items:center;overflow:hidden;">
+      <img v-for="u in wants" :key="u.id" :src="u.icon || '/imgs/icons/default-icon.png'" alt="" style="width:28px;height:28px;border-radius:50%;margin-right:4px;background:#f1f1f1;">
+      <span style="color:#999;font-size:12px;margin-left:2px;">{{goods.comments || 0}}人想要</span>
+    </div>
+  </div>
+  <div class="goods-divider"></div>
+  <div class="goods-flash">
+    <div>
+      <span class="flash-icon">捡</span>
+      <span style="font-weight: bold;">捡漏活动</span>
+    </div>
+    <div class="flash-box" v-for="v in flashs" :key="v.id" v-if="!isEnd(v)">
+      <div class="flash-circle">
+        <div class="flash-b"></div>
+        <div class="flash-b"></div>
+        <div class="flash-b"></div>
+      </div>
+      <div class="flash-left">
+        <div class="flash-title">{{v.title}}</div>
+        <div class="flash-subtitle">{{v.subTitle}}</div>
+        <div class="flash-price"><div>￥ {{util.formatPrice(v.price)}}</div>  <span>市场价￥{{v.marketValue}}</span></div>
+      </div>
+      <div class="flash-right">
+        <div v-if="v.type" class="seckill-box">
+          <div class="flash-btn" :class="{'disable-btn': isNotBegin(v) || v.stock < 1}" @click="seckill(v)">限时抢购</div>
+          <div class="seckill-stock">剩余 <span>{{v.stock}}</span> 件</div>
+          <div class="seckill-time">{{formatTime(v)}}</div>
+        </div>
+        <div class="flash-btn" v-else @click="buyFlashSale(v)">抢购</div>
+      </div>
+    </div>
+  </div>
+  <div class="goods-divider"></div>
+  <div class="goods-comments">
+    <div class="comments-head">
+      <div>想要 TA 的人 <span>（{{goods.comments || 0}}）</span></div>
+      <div><i class="el-icon-arrow-right"></i></div>
+    </div>
+    <div style="padding:10px 15px;display:flex;flex-wrap:wrap;background:#fff;">
+      <div v-for="u in wants" :key="u.id" style="text-align:center;margin:8px 12px;">
+        <img :src="u.icon || '/imgs/icons/default-icon.png'" alt="" style="width:40px;height:40px;border-radius:50%;background:#f1f1f1;">
+        <div style="font-size:12px;color:#666;margin-top:4px;">{{u.nickName}}</div>
+      </div>
+      <div v-if="!wants.length" style="width:100%;text-align:center;color:#999;padding:20px;">还没有人想要，快来抢占沙发~</div>
+    </div>
+  </div>
+  <div class="goods-divider"></div>
+  <div class="copyright">
+    copyright ©2026 xiantao.com
+  </div>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script>
+
+  const app = new Vue({
+    el: "#app",
+    data: {
+      util,
+      goods: {},
+      flashs: [],
+      wants: []
+    },
+    created() {
+      // 获取参数
+      let goodsId = util.getUrlParam("id");
+      // 查询商品信息
+      this.queryGoodsById(goodsId);
+      // 查询捡漏活动
+      this.queryFlashSale(goodsId);
+      // 查询想要 TA 的用户
+      this.queryGoodsWants(goodsId);
+    },
+    methods: {
+      goBack() {
+        history.back();
+      },
+      queryGoodsById(goodsId) {
+        axios.get("/goods/" + goodsId)
+        .then(({data}) => {
+          // Result.fail 时 HTTP 仍是 200，需要显式判断业务是否成功，避免对空数据报 TypeError
+          if (!data || data.success === false) {
+            this.$message.error((data && data.errorMsg) || "商品不存在或已下架");
+            return;
+          }
+          data.images = data.images.split(",")
+          this.goods = data
+        })
+        .catch(err => this.$message.error("商品加载失败：" + (err.message || "")))
+      },
+      queryFlashSale(goodsId) {
+        axios.get("/flash-sale/list/" + goodsId)
+        .then(({data}) => {
+          this.flashs = data;
+        })
+        .catch(err => this.$message.error("捡漏活动加载失败：" + (err.message || "")))
+      },
+      queryGoodsComments(goodsId) {
+        axios.get("/goods/comments/" + goodsId)
+          .then(({data}) => {
+            if (data && data.length) {
+              data.forEach(c => c.score = c.score / 10 || 4.5);
+              this.goodsComments = data;
+            }
+          })
+          .catch(() => {})
+      },
+      queryGoodsWants(goodsId) {
+        axios.get("/goods/wants/" + goodsId)
+          .then(({data}) => {
+            this.wants = data.users || [];
+            this.goods.wanted = data.wanted;
+          })
+          .catch(() => {})
+      },
+      wantGoods() {
+        var token = sessionStorage.getItem("token");
+        if(!token){
+          this.$message.error("请先登录")
+          setTimeout(() => location.href = "/login.html", 200);
+          return;
+        }
+        // 商品数据未加载成功时无 id，直接提示并忽略，避免发出 /goods/want/undefined
+        if (!this.goods || !this.goods.id) {
+          this.$message.error("商品数据未加载成功，请刷新页面重试");
+          return;
+        }
+        axios.put("/goods/want/" + this.goods.id)
+          .then(() => {
+            this.goods.wanted = !this.goods.wanted;
+            this.goods.comments = (this.goods.comments || 0) + (this.goods.wanted ? 1 : -1);
+            this.queryGoodsWants(this.goods.id);
+            this.$message.success(this.goods.wanted ? "已加入想要，卖家很快就能看到你" : "已取消想要");
+          })
+          .catch(err => this.$message.error("操作失败：" + (err.message || "")))
+      },
+      formatTime(v){
+        let b = new Date(v.beginTime);
+        let e = new Date(v.endTime);
+        return b.getMonth() + 1 + "月" + b.getDate() + "日 "
+          +  b.getHours() + ":" + this.formatMinutes(b.getMinutes())
+          + " ~ "/*  + e.getMonth() + 1 + "月" + e.getDate() + "日 " */
+          +  e.getHours() + ":" + this.formatMinutes(e.getMinutes());
+      },
+      formatMinutes(m){
+        if(m < 10) m = "0" + m
+        return m;
+      },
+      isNotBegin(v){
+        return new Date(v.beginTime).getTime() > new Date().getTime();
+      },
+      isEnd(v){
+        return new Date(v.endTime).getTime() < new Date().getTime();
+      },
+      seckill(v){
+        var token = sessionStorage.getItem("token");
+        if(!token){
+          this.$message.error("请先登录")
+          setTimeout(() => location.href = "/login.html", 200);
+          return;
+        }
+        if(this.isNotBegin(v)){
+          this.$message.error("捡漏活动尚未开始！")
+          return;
+        }
+        if(this.isEnd(v)){
+          this.$message.error("捡漏活动已经结束！")
+          return;
+        }
+        if(v.stock < 1){
+          this.$message.error("库存不足，请刷新再试试！")
+          return;
+        }
+        let id = v.id;
+        // 秒杀抢购
+        axios.post("/flash-order/seckill/" + id)
+        .then(({data}) => {
+          this.$message.success("抢购成功，订单id：" + data)
+        })
+        .catch(err => this.$message.error("抢购失败：" + (err.message || "")))
+      },
+      buyFlashSale(v){
+        var token = sessionStorage.getItem("token");
+        if(!token){
+          this.$message.error("请先登录")
+          setTimeout(() => location.href = "/login.html", 200);
+          return;
+        }
+        axios.post("/flash-order/seckill/" + v.id)
+        .then(({data}) => {
+          this.$message.success("抢购成功，订单id：" + data)
+        })
+        .catch(err => this.$message.error("抢购失败：" + (err.message || "")))
+      }
+    }
+  })
+</script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>闲淘</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/info.css" rel="stylesheet">
+
+  <style type="text/css">
+      .el-tabs--bottom .el-tabs__item.is-bottom:nth-child(2), .el-tabs--bottom .el-tabs__item.is-top:nth-child(2), .el-tabs--top .el-tabs__item.is-bottom:nth-child(2), .el-tabs--top .el-tabs__item.is-top:nth-child(2) {
+          padding-left: 15px;
+      }
+
+      .el-tabs, .el-tab-pane {
+          height: 100%;
+      }
+
+      .el-tabs__header {
+          height: 10%;
+      }
+
+      .el-tabs__content {
+          height: 90%;
+      }
+
+      /* 状态栏目入口 */
+      .status-bar {
+          display: flex;
+          justify-content: space-around;
+          background: #fff;
+          padding: 12px 0;
+          margin-bottom: 6px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .status-item {
+          text-align: center;
+          cursor: pointer;
+          width: 20%;
+      }
+      .status-icon {
+          font-size: 24px;
+          color: #ff6633;
+          line-height: 30px;
+      }
+      .status-name {
+          font-size: 12px;
+          color: #333;
+          margin-top: 4px;
+      }
+
+      /* 订单状态快捷入口 */
+      .order-status-bar {
+          display: flex;
+          background: #fff;
+          margin-bottom: 6px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .order-status-item {
+          position: relative;
+          flex: 1;
+          text-align: center;
+          padding: 12px 0;
+          cursor: pointer;
+      }
+      .order-status-icon {
+          font-size: 22px;
+          color: #333;
+          line-height: 26px;
+      }
+      .order-status-name {
+          font-size: 12px;
+          color: #666;
+          margin-top: 4px;
+      }
+      .order-status-badge {
+          position: absolute;
+          top: 6px;
+          left: 50%;
+          margin-left: 8px;
+          min-width: 16px;
+          height: 16px;
+          line-height: 16px;
+          padding: 0 4px;
+          border-radius: 8px;
+          background: #ff4d4f;
+          color: #fff;
+          font-size: 10px;
+          text-align: center;
+          box-sizing: border-box;
+      }
+  </style>
+
+  <!-- 双模式切换：桌面版/手机版 -->
+  <link href="./css/desktop.css" rel="stylesheet">
+  <script src="./js/mode.js"></script>
+</head>
+
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-back-btn" @click="goBack"><i class="el-icon-arrow-left"></i></div>
+    <div class="header-title">个人主页&nbsp;&nbsp;&nbsp;</div>
+  </div>
+  <div class="basic">
+    <div class="basic-icon">
+      <img :src="user.icon || '/imgs/icons/default-icon.png'" alt="">
+    </div>
+    <div class="basic-info">
+      <div class="name">{{user.nickName}}</div>
+      <span>{{info.city || '同城'}}</span>
+      <div class="edit-btn" @click="toEdit">
+        编辑资料
+      </div>
+    </div>
+    <div class="logout-btn" @click="logout">
+      退出登录
+    </div>
+  </div>
+  <div class="introduce">
+    <span v-if="info.introduce"></span>
+    <span v-else>添加个人简介，让大家更好的认识你 <i class="el-icon-edit"></i></span>
+  </div>
+  <!-- 状态栏目入口：我的想要 / 我的订单 / 我的发布 / 浏览足迹 / 已买到 -->
+  <div class="status-bar">
+    <div class="status-item" @click="toPage('wants.html')">
+      <div class="status-icon"><i class="el-icon-star-off"></i></div>
+      <div class="status-name">我的想要</div>
+    </div>
+    <div class="status-item" @click="toPage('orders.html')">
+      <div class="status-icon"><i class="el-icon-s-order"></i></div>
+      <div class="status-name">我的订单</div>
+    </div>
+    <div class="status-item" @click="toPage('my-goods.html')">
+      <div class="status-icon"><i class="el-icon-shopping-bag-1"></i></div>
+      <div class="status-name">我的发布</div>
+    </div>
+    <div class="status-item" @click="toPage('browse.html')">
+      <div class="status-icon"><i class="el-icon-view"></i></div>
+      <div class="status-name">浏览足迹</div>
+    </div>
+    <div class="status-item" @click="toPage('bought.html')">
+      <div class="status-icon"><i class="el-icon-shopping-bag-2"></i></div>
+      <div class="status-name">已买到</div>
+    </div>
+  </div>
+  <!-- 订单状态快捷入口：待付款 / 待收货 / 已完成 / 退款售后 -->
+  <div class="order-status-bar">
+    <div class="order-status-item" @click="toOrdersTab('1')">
+      <div class="order-status-icon"><i class="el-icon-money"></i></div>
+      <div class="order-status-name">待付款</div>
+      <div class="order-status-badge" v-if="statusCount['1'] > 0">{{statusCount['1']}}</div>
+    </div>
+    <div class="order-status-item" @click="toOrdersTab('2')">
+      <div class="order-status-icon"><i class="el-icon-van"></i></div>
+      <div class="order-status-name">待收货</div>
+      <div class="order-status-badge" v-if="statusCount['2'] > 0">{{statusCount['2']}}</div>
+    </div>
+    <div class="order-status-item" @click="toOrdersTab('3')">
+      <div class="order-status-icon"><i class="el-icon-circle-check"></i></div>
+      <div class="order-status-name">已完成</div>
+      <div class="order-status-badge" v-if="statusCount['3'] > 0">{{statusCount['3']}}</div>
+    </div>
+    <div class="order-status-item" @click="toOrdersTab('cancel')">
+      <div class="order-status-icon"><i class="el-icon-refresh-left"></i></div>
+      <div class="order-status-name">退款/售后</div>
+      <div class="order-status-badge" v-if="refundCount > 0">{{refundCount}}</div>
+    </div>
+  </div>
+  <div class="content">
+    <el-tabs v-model="activeName" @tab-click="handleClick">
+      <el-tab-pane label="笔记" name="1">
+        <div v-if="notes.length === 0" style="text-align:center;color:#999;padding:40px;">还没有笔记，去发布一篇吧</div>
+        <div v-for="b in notes" :key="b.id" class="note-item" @click="toGoodsNoteDetail(b.id)">
+          <div class="note-img"><img :src="b.images.split(',')[0]" alt=""></div>
+          <div class="note-info">
+            <div class="note-title">{{b.title}}</div>
+            <div class="note-liked"><img src="/imgs/thumbup.png" alt=""> {{b.liked}}</div>
+            <div class="note-comments"><i class="el-icon-chat-dot-round"></i> {{b.comments}}</div>
+          </div>
+        </div>
+      </el-tab-pane>
+      <el-tab-pane label="评价" name="2">评价</el-tab-pane>
+      <el-tab-pane :label="fansLabel" name="3">
+        <div v-if="fans.length === 0" style="text-align:center;color:#999;padding:20px;">暂无粉丝</div>
+        <div v-for="u in fans" :key="u.id" class="follow-item" @click="toOtherInfo(u.id)" style="display:flex;align-items:center;padding:12px;border-bottom:1px solid #f1f1f1;">
+          <img :src="u.icon || '/imgs/icons/default-icon.png'" style="width:40px;height:40px;border-radius:50%;margin-right:12px;" alt="">
+          <span>{{u.nickName}}</span>
+        </div>
+      </el-tab-pane>
+      <el-tab-pane :label="followeeLabel" name="4">
+        <div v-if="followees.length === 0" style="text-align:center;color:#999;padding:20px;">暂无关注</div>
+        <div v-for="u in followees" :key="u.id" class="follow-item" @click="toOtherInfo(u.id)" style="display:flex;align-items:center;padding:12px;border-bottom:1px solid #f1f1f1;">
+          <img :src="u.icon || '/imgs/icons/default-icon.png'" style="width:40px;height:40px;border-radius:50%;margin-right:12px;" alt="">
+          <span>{{u.nickName}}</span>
+        </div>
+      </el-tab-pane>
+
+    </el-tabs>
+  </div>
+  <foot-bar :active-btn="4"></foot-bar>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script>
+  const app = new Vue({
+    el: "#app",
+    data: {
+      user: "",
+      activeName: "1",
+      info: {},
+      notes: [],
+      notes2: [],
+      fans: [],
+      followees: [],
+      statusCount: {},
+      params: {
+        minTime: 0,
+        offset: 0,
+      },
+      count: 5,
+      isReachBottom: false,
+    },
+    computed: {
+      fansLabel() {
+        return "粉丝(" + (this.info.fans || 0) + ")";
+      },
+      followeeLabel() {
+        return "关注(" + (this.info.followee || 0) + ")";
+      },
+      refundCount() {
+        return (this.statusCount['5'] || 0) + (this.statusCount['6'] || 0);
+      }
+    },
+    created() {
+      this.queryUser();
+      this.queryOrderStatusCount();
+    },
+    methods: {
+      load() {
+        this.count += 2;
+      },
+      queryGoodsNotes() {
+        axios.get("/note/of/me")
+          .then(({data}) => this.notes = data)
+          .catch(this.$message.error)
+      },
+      queryGoodsNotesOfFollow(clear) {
+        if (clear) {
+          this.params.offset = 0;
+          this.params.minTime = new Date().getTime() + 1;
+        }
+        let {minTime, offset: os} = this.params;
+        axios.get("/note/of/follow", {
+            params: {offset: os, lastId: minTime || new Date().getTime() + 1}
+          })
+          .then(({data}) => {
+            if (!data) {
+              return;
+            }
+            let {list, ...params} = data;
+            list.forEach(b => b.img = b.images.split(",")[0])
+            this.notes2 = clear ? list : this.notes2.concat(list);
+            this.params = params;
+          })
+          .catch(e => console.log(e))
+      },
+      queryUser() {
+        // 查询用户信息
+        axios.get("/user/me")
+          .then(({data}) => {
+            // 保存用户
+            this.user = data;
+            // 查询用户详情
+            this.queryUserInfo();
+            // 查询用户笔记
+            this.queryGoodsNotes();
+          })
+          .catch(err => {
+            location.href = "login.html"
+          })
+      },
+      goBack() {
+        history.back();
+      },
+      queryUserInfo() {
+        axios.get("/user/info/" + this.user.id)
+          .then(({data}) => {
+            if (!data) {
+              return
+            }
+            // 保存用户详情
+            this.info = data;
+            // 保存到本地
+            sessionStorage.setItem("userInfo", JSON.stringify(data))
+          })
+          .catch(err => {
+            this.$message.error(err);
+          })
+      },
+      toEdit() {
+        location.href = 'info-edit.html'
+      },
+      toPage(page) {
+        location.href = '/' + page
+      },
+      toOrdersTab(tab) {
+        location.href = '/orders.html?tab=' + tab
+      },
+      queryOrderStatusCount() {
+        axios.get("/flash-order/status-count")
+          .then(({data}) => this.statusCount = data || {})
+          .catch(() => {})
+      },
+      toGoodsNoteDetail(id) {
+        location.href = '/note-detail.html?id=' + id
+      },
+      logout() {
+        axios.post("/user/logout")
+          .then(() => {
+            // 清理session
+            sessionStorage.removeItem("token")
+            // 跳转
+            location.href = "/"
+          })
+          .catch(this.$message.error)
+      },
+      handleClick(r) {
+        if (r.name === '3') {
+          this.queryFans();
+        } else if (r.name === '4') {
+          this.queryFollowees();
+        }
+      },
+      queryFans() {
+        axios.get("/follow/fans")
+          .then(({data}) => this.fans = data || [])
+          .catch(() => {})
+      },
+      queryFollowees() {
+        axios.get("/follow/followee")
+          .then(({data}) => this.followees = data || [])
+          .catch(() => {})
+      },
+      toOtherInfo(id) {
+        location.href = '/other-info.html?id=' + id
+      },
+      addLike(b) {
+        // 乐观更新：先改 UI，失败再回滚
+        // 数据未加载成功时（无 id）直接忽略，避免发出 /note/like/undefined
+        if (!b || !b.id || b._likePending) return;
+        var oldLike = b.isLike;
+        var oldCount = b.liked;
+        b.isLike = !b.isLike;
+        b.liked = b.isLike ? (b.liked || 0) + 1 : (b.liked || 0) - 1;
+        b._likePending = true;
+        axios.put("/note/like/" + b.id)
+          .then(() => {})
+          .catch(err => {
+            b.isLike = oldLike;
+            b.liked = oldCount;
+            this.$message.error(err);
+          })
+          .finally(() => b._likePending = false);
+      },
+      onScroll(e) {
+        let scrollTop = e.target.scrollTop;
+        let offsetHeight = e.target.offsetHeight;
+        let scrollHeight = e.target.scrollHeight;
+        if (scrollTop === 0) {
+          // 到顶部了，查询一次
+          this.queryGoodsNotesOfFollow(true);
+        } else if (scrollTop + offsetHeight + 1 > scrollHeight && !this.isReachBottom) {
+          this.isReachBottom = true
+          // 再次查询下一页数据
+          this.queryGoodsNotesOfFollow();
+        } else {
+          this.isReachBottom = false
+        }
+      }
+    },
+
+  })
+</script>
+</body>
+
+</html>
