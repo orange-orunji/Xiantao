@@ -3,3 +3,6 @@ jdk/
 # nginx 运行时产物（日志/临时文件/pid）
 nginx-1.18.0/logs/
 nginx-1.18.0/temp/
+
+# 环境变量密码文件（禁止入库）
+.env

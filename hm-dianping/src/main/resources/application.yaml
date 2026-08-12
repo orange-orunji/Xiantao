@@ -12,7 +12,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://192.168.161.128:3306/xiantao?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: root
-    password: Ww2301079399@
+    # 密码通过环境变量注入，请勿提交明文密码（本地运行前设置 MYSQL_PASSWORD）
+    password: ${MYSQL_PASSWORD}
     hikari:
       maximum-pool-size: 50
       minimum-idle: 10
@@ -20,7 +21,8 @@ spring:
   redis:
     host: 192.168.161.128
     port: 7000
-    password: Ww2301079399@
+    # 密码通过环境变量注入，请勿提交明文密码（本地运行前设置 REDIS_PASSWORD）
+    password: ${REDIS_PASSWORD}
     lettuce:
       pool:
         max-active: 400
@@ -33,12 +35,13 @@ spring:
 #        - 192.168.161.128:27000
 #        - 192.168.161.128:27001
 #        - 192.168.161.128:27002
-#      password: Ww2301079399@
+#      password: ${REDIS_SENTINEL_PASSWORD}
   rabbitmq:
     host: 192.168.161.128
     port: 5672
     username: xiantao
-    password: 123
+    # 密码通过环境变量注入，请勿提交明文密码（本地运行前设置 RABBITMQ_PASSWORD）
+    password: ${RABBITMQ_PASSWORD}
     virtual-host: /xiantao
     publisher-returns: true
     listener:
