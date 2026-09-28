@@ -16,6 +16,8 @@ public class RedisConstants {
     public static final Long LOCK_GOODS_TTL = 10L;
 
     public static final String FLASH_STOCK_KEY = "flash:stock:";
+    /** 死信补偿幂等键：以订单ID为唯一键，保证同一订单只补偿一次 */
+    public static final String ORDER_DLX_COMPENSATED_KEY = "order:dlx:compensated:";
     public static final String NOTE_LIKED_KEY = "note:liked:";
     public static final String GOODS_WANT_KEY = "goods:want:";
     public static final String BROWSE_GOODS_KEY = "browse:goods:";
