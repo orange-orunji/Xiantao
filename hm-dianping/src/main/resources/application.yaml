@@ -59,3 +59,4 @@ logging:
     com.xiantao: warn
     # 商品缓存预热是重要启动信息，单独放开 info 级别（其余仍保持 warn）
     com.xiantao.service.impl.GoodsServiceImpl: info
+    com.xiantao.utils.OrderConsumer: info
