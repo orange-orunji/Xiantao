@@ -259,7 +259,8 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
         rabbitTemplate.convertAndSend("order.exchange","order.generate",
                 flashOrder,new CorrelationData(String.valueOf(orderId)));
                                 //CorrelationData消息快递单号,用于给生产者处理确定是什么订单传过来的，便于后续维护
-        return Result.ok(orderId);
+        // 雪花ID超过JS安全整数(2^53)，以数字形式过JSON会被前端截断精度，必须字符串下发
+        return Result.ok(String.valueOf(orderId));
     }
 //    @Override
 //    public Result seckillFlashSale(Long flashId) throws InterruptedException {
@@ -413,7 +414,8 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
         // 组装订单视图
         List<Map<String, Object>> result = orders.stream().map(o -> {
             Map<String, Object> item = new HashMap<>();
-            item.put("orderId", o.getId());
+            // 雪花ID超过JS安全整数(2^53)，以数字形式过JSON会被前端截断精度，必须字符串下发
+            item.put("orderId", String.valueOf(o.getId()));
             item.put("status", o.getStatus());
             item.put("createTime", o.getCreateTime());
             FlashSale fs = flashMap.get(o.getFlashId());
@@ -525,6 +527,7 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
         if (flashOrder == null)
             return true;
         UserDTO user = UserHolder.getUser();
+        log.info("订单不存在：{}", orderId); // 日志信息
         return user == null || !user.getId().equals(flashOrder.getUserId());
     }
 }
