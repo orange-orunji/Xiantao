@@ -1,12 +1,12 @@
 package com.xiantao.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.xiantao.dto.Result;
 import com.xiantao.dto.UserDTO;
 import com.xiantao.entity.FlashOrder;
 import com.xiantao.entity.FlashSale;
 import com.xiantao.entity.FlashStock;
 import com.xiantao.entity.Goods;
+import com.xiantao.exception.StockEmptyException;
 import com.xiantao.mapper.FlashOrderMapper;
 import com.xiantao.service.IFlashStockService;
 import com.xiantao.service.IFlashOrderService;
@@ -16,36 +16,25 @@ import com.xiantao.service.IFlashSaleService;
 import com.xiantao.utils.RedisConstants;
 import com.xiantao.utils.RedisIdWorker;
 import com.xiantao.utils.UserHolder;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.impl.AMQImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RedissonClient;
-import org.springframework.amqp.core.ExchangeTypes;
-import org.springframework.amqp.core.Message;
-import org.springframework.amqp.rabbit.annotation.Exchange;
-import org.springframework.amqp.rabbit.annotation.Queue;
-import org.springframework.amqp.rabbit.annotation.QueueBinding;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.aop.framework.AopContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
-import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static com.xiantao.utils.RedisConstants.FLASH_STOCK_KEY;
@@ -86,6 +75,9 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
         LIMIT.setLocation(new ClassPathResource("rate_limit.lua"));
         LIMIT.setResultType(Long.class);
     }
+
+    @Autowired
+    private RedisTemplate<Object, Object> redisTemplate;
 /**
  * 线程池相关做法
  */
@@ -241,13 +233,11 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
         }
 ////================================================================================
         //1.lua脚本实现秒杀库存,一人一单是否抢购成功
-        // 确保Redis库存缓存存在，不存在则从数据库初始化
+        // 确保Redis库存缓存存在，不存在则从数据库初始化（SETNX 原子写入，避免并发下"检查-设置"竞态重复初始化）
         String stockKey = RedisConstants.FLASH_STOCK_KEY + flashId;
-        if (Boolean.FALSE.equals(stringRedisTemplate.hasKey(stockKey))) {
-            FlashStock sv = seckill.getById(flashId);
-            if (sv != null && sv.getStock() != null) {
-                stringRedisTemplate.opsForValue().set(stockKey, sv.getStock().toString());
-            }
+        FlashStock sv = seckill.getById(flashId);
+        if (sv != null && sv.getStock() != null) {
+            stringRedisTemplate.opsForValue().setIfAbsent(stockKey, sv.getStock().toString());
         }
         Long l = stringRedisTemplate.execute(
                 //lua脚本引用
@@ -380,8 +370,10 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
                 .gt("stock", 0)
                 .update();
         if (!success) {
-            log.error("库存不足");
-            throw new RuntimeException("库存不足");
+            log.error("库存不足，flashId={}", flash.getFlashId());
+            // 单独抛 StockEmptyException：DB 无库存说明 Redis 与 DB 不一致，
+            // 消费端不回补 Redis 库存（回补会放大超卖），需告警人工核查
+            throw new StockEmptyException("库存不足，flashId=" + flash.getFlashId());
         }
         // 保存订单
         save(flash);
@@ -454,12 +446,12 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
         }
         return Result.ok(countMap);
     }
-
-    /**
-     * 秒杀活动限流
-     * @param userId
-     * @return
-     */
+//
+//    /**
+//     * 秒杀活动限流
+//     * @param userId
+//     * @return
+//     */
 //    public Integer rateLimit(Long userId){
 //        String key = "rate_limit:skill:" + userId;
 //        long l = System.currentTimeMillis() ;
@@ -475,4 +467,64 @@ public class FlashOrderServiceImpl extends ServiceImpl<FlashOrderMapper, FlashOr
 //        stringRedisTemplate.expire(key, 2, TimeUnit.SECONDS);
 //        return 1;
 //    }
+
+    @Override
+    public Result payOrder(Long orderId, Integer payType) {
+        if (orderServer(orderId)) return Result.fail("订单不存在");
+        if(!update().set("status", 2).set("pay_time", LocalDateTime.now())
+                .set("pay_type", payType).eq("id", orderId)
+                .eq("status", 1).update()){
+            return Result.fail("订单状态已变化，请刷新重试");
+        }
+        log.info("订单已支付，orderId={}", orderId);
+        return Result.ok("支付成功");
+    }
+
+    /**
+     * 取消订单
+     * @param orderId 订单ID
+     * @return 结果
+     */
+    @Transactional
+    @Override
+    public Result cancelOrder(Long orderId) {
+        FlashOrder flashOrder = getById(orderId);
+        if (flashOrder == null) {
+            return Result.fail("订单不存在");
+        }
+        UserDTO user = UserHolder.getUser();
+        if (user == null || !user.getId().equals(flashOrder.getUserId())) {
+            return Result.fail("订单不存在");
+        }
+        if (!update().set("status", 4).eq("id", orderId).eq("status", 1).update()) {
+            return Result.fail("订单状态已变化，请刷新重试");
+        }
+        seckill.update().setSql("stock = stock + 1").eq("flash_id", flashOrder.getFlashId()).update();
+        stringRedisTemplate.opsForValue().increment(FLASH_STOCK_KEY + flashOrder.getFlashId(), 1);
+        log.info("订单已取消，orderId={}", orderId);
+        return Result.ok("订单取消成功");
+    }
+
+    /**
+     * 确认订单
+     * @param orderId 订单ID
+      * @return  确认订单结果
+     */
+    @Override
+    public Result confirmOrder(Long orderId) {
+        if (orderServer(orderId)) return Result.fail("订单不存在");
+        if (!update().set("status", 3).eq("id", orderId).eq("status", 2).update()) {
+            return Result.fail("订单状态已变化，请刷新重试");
+        }
+        log.info("订单已确认，orderId={}", orderId);
+        return Result.ok("订单已确认");
+    }
+
+    private boolean orderServer(Long orderId) {
+        FlashOrder flashOrder = getById(orderId);
+        if (flashOrder == null)
+            return true;
+        UserDTO user = UserHolder.getUser();
+        return user == null || !user.getId().equals(flashOrder.getUserId());
+    }
 }

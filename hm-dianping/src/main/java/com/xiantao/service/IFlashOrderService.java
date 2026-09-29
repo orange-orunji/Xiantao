@@ -21,4 +21,26 @@ public interface IFlashOrderService extends IService<FlashOrder> {
      * @return 状态 -> 数量 映射
      */
     Result queryOrderStatusCount();
+
+    /**
+     * 支付订单
+     * @param orderId 订单ID
+     * @param payType 支付类型：1-余额支付 2-微信付款 3-支付宝支付
+     * @return 支付状态
+     */
+    Result payOrder(Long orderId,Integer payType);
+
+    /**
+     * 取消订单
+      * @param orderId 订单ID
+     * @return 取消结果
+     */
+    Result cancelOrder(Long orderId);
+
+    /**
+     * 确认订单
+     * @param orderId 订单ID
+     * @return 确认结果
+     */
+    Result confirmOrder(Long orderId);
 }

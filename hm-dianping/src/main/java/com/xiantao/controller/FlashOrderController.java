@@ -74,4 +74,36 @@ public class FlashOrderController {
     public Result queryOrderStatusCount() {
         return flashOrderService.queryOrderStatusCount();
     }
+
+    /**
+     * 订单支付
+      * @param orderId 订单id
+      * @param payType 支付类型
+     * @return 支付结果
+     */
+    @PostMapping("/{orderId}/pay")
+    public Result payOrder(@PathVariable Long orderId, @RequestParam Integer payType) {
+        return flashOrderService.payOrder(orderId, payType);
+    }
+
+
+    /**
+     * 取消订单
+      * @param orderId 订单id
+     * @return  取消结果
+     */
+    @PostMapping("/{orderId}/cancel")
+    public Result cancelOrder(@PathVariable Long orderId) {
+        return flashOrderService.cancelOrder(orderId);
+    }
+
+    /**
+     * 确认订单
+      * @param orderId 订单id
+     * @return  确认结果
+     */
+    @PostMapping("/{orderId}/confirm")
+    public Result confirmOrder(@PathVariable Long orderId) {
+        return flashOrderService.confirmOrder(orderId);
+    }
 }
