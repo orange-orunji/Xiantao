@@ -23,6 +23,16 @@
     .goods-flash { font-size: 12px; color: #f63; margin-top: 2px; }
     .order-price { color: #f63; font-weight: bold; font-size: 15px; }
     .order-time { font-size: 11px; color: #bbb; }
+    .order-goods { cursor: pointer; }
+    .order-actions { display: flex; justify-content: flex-end; padding-top: 8px; margin-top: 8px; border-top: 1px dashed #eee; }
+    .order-actions .el-button--primary { background: #f63; border-color: #f63; }
+    .pay-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+    .pay-dialog { width: 280px; background: #fff; border-radius: 10px; padding: 20px 16px; text-align: center; }
+    .pay-title { font-size: 13px; color: #999; }
+    .pay-amount { font-size: 24px; font-weight: bold; color: #f63; margin: 6px 0 14px; }
+    .pay-option { height: 40px; line-height: 40px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 8px; font-size: 14px; cursor: pointer; }
+    .pay-option:hover { border-color: #f63; color: #f63; }
+    .pay-option-cancel { border: none; color: #999; }
   </style>
   <!-- 双模式切换：桌面版/手机版 -->
   <link href="./css/desktop.css" rel="stylesheet">
@@ -43,24 +53,43 @@
       <div style="font-size:40px;margin-bottom:10px;"><i class="el-icon-s-order"></i></div>
       暂无订单
     </div>
-    <div class="order-card" v-for="o in filtered" :key="o.orderId" @click="toDetail(o.goods ? o.goods.id : '')">
+    <div class="order-card" v-for="o in filtered" :key="o.orderId">
       <div class="order-head">
         <span>订单号：{{o.orderId}}</span>
         <span class="order-status">{{statusText(o.status)}}</span>
       </div>
-      <div class="order-body" v-if="o.goods">
+      <!-- 商品区域点击跳商品详情；订单级操作由下方按钮负责 -->
+      <div class="order-body order-goods" v-if="o.goods" @click="toDetail(o.goods.id)">
         <div class="goods-img"><img :src="o.goods.images.split(',')[0]" alt="" loading="lazy" @error="e => e.target.src='/imgs/icons/default-icon.png'"></div>
         <div class="goods-info">
           <div class="goods-title">{{o.goods.name}}</div>
           <div class="goods-flash" v-if="o.flashTitle">捡漏：{{o.flashTitle}}</div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;">
-            <div class="order-price" v-if="o.flashPrice != null">￥{{util.formatPrice(o.flashPrice)}}</div>
-            <div class="order-price" v-else>￥{{o.goods.price}}</div>
+            <div class="order-price">￥{{priceText(o)}}</div>
             <div class="order-time">{{formatTime(o.createTime)}}</div>
           </div>
         </div>
       </div>
       <div class="order-body" v-else style="color:#999;font-size:13px;">商品信息已失效</div>
+      <!-- 订单操作栏：待支付→取消/支付；已支付→确认收货 -->
+      <div class="order-actions" v-if="o.status === 1 || o.status === 2">
+        <template v-if="o.status === 1">
+          <el-button size="mini" plain @click="cancelOrder(o)">取消订单</el-button>
+          <el-button size="mini" type="primary" @click="payOrder(o)">去支付</el-button>
+        </template>
+        <el-button v-else size="mini" type="success" plain @click="confirmOrder(o)">确认收货</el-button>
+      </div>
+    </div>
+  </div>
+  <!-- 模拟收银台：只负责支付方式选择展示，真实状态流转由后端完成 -->
+  <div class="pay-mask" v-if="payingOrder" @click.self="payingOrder = null">
+    <div class="pay-dialog">
+      <div class="pay-title">订单金额</div>
+      <div class="pay-amount">￥{{priceText(payingOrder)}}</div>
+      <div class="pay-option" v-for="p in payTypes" :key="p.value" @click="doPay(p.value)">
+        <i :class="p.icon"></i> {{p.label}}
+      </div>
+      <div class="pay-option pay-option-cancel" @click="payingOrder = null">取消</div>
     </div>
   </div>
   <foot-bar :active-btn="4"></foot-bar>
@@ -76,6 +105,12 @@
     data: {
       util,
       orders: [],
+      payingOrder: null, // 正在支付的订单，非空时展示收银台
+      payTypes: [
+        {value: 1, label: "余额支付（模拟）", icon: "el-icon-money"},
+        {value: 2, label: "支付宝（模拟）", icon: "el-icon-bank-card"},
+        {value: 3, label: "微信支付（模拟）", icon: "el-icon-mobile-phone"}
+      ],
       currentTab: "all",
       tabs: [
         {label: "全部", value: "all"},
@@ -117,6 +152,47 @@
       },
       toDetail(id) {
         if (id) location.href = "/goods-detail.html?id=" + id;
+      },
+      priceText(o) {
+        if (o.flashPrice != null) return util.formatPrice(o.flashPrice);
+        return o.goods ? o.goods.price : "--";
+      },
+      payOrder(o) {
+        this.payingOrder = o;
+      },
+      doPay(payType) {
+        const o = this.payingOrder;
+        this.payingOrder = null;
+        axios.post("/flash-order/" + o.orderId + "/pay", null, {params: {payType}})
+          .then(() => {
+            this.$message.success("支付成功");
+            this.queryOrders();
+          })
+          .catch(err => this.$message.error(err || "支付失败"));
+      },
+      cancelOrder(o) {
+        this.$confirm("取消后库存将回补到捡漏池，确定取消该订单？", "取消订单", {type: "warning"})
+          .then(() => {
+            axios.post("/flash-order/" + o.orderId + "/cancel")
+              .then(() => {
+                this.$message.success("订单已取消");
+                this.queryOrders();
+              })
+              .catch(err => this.$message.error(err || "取消失败"));
+          })
+          .catch(() => {});
+      },
+      confirmOrder(o) {
+        this.$confirm("确认已收到商品？", "确认收货", {type: "warning"})
+          .then(() => {
+            axios.post("/flash-order/" + o.orderId + "/confirm")
+              .then(() => {
+                this.$message.success("已确认收货");
+                this.queryOrders();
+              })
+              .catch(err => this.$message.error(err || "操作失败"));
+          })
+          .catch(() => {});
       },
       goBack() { history.back(); },
       statusText(s) {
