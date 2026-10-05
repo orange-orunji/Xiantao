@@ -220,7 +220,7 @@ http://localhost:8081/doc.html
 
 - **消息队列异步化**：接入 RabbitMQ，将捡漏下单异步化，配合死信队列实现重试机制，平滑峰值流量。
 - **Lua 原子操作**：库存扣减、一人一件、限流均使用 Lua 脚本保证原子性，替代复杂分布式锁方案。
-- **压测与 JVM 调优**：通过 JMeter 全链路压测，借助 Arthas 分析热点代码，最终输出 QPS 3000+ 的性能报告。
+- **压测与 JVM 调优**：9 轮 JMeter 全链路压测 + Arthas 热点分析持续调优，抢购接口错误率从 100% 降至 7.89%（剩余为 TCP 连接损耗，服务端请求全部成功）；完整记录见 [docs/pressure-test-report.md](docs/pressure-test-report.md)。
 
 ## 🔮 未来规划
 
