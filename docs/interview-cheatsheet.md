@@ -8,7 +8,7 @@
 
 ## 〇、30 秒项目定位（开口第一句）
 
-> 知味是一个**本地生活服务点评平台**（类似大众点评），核心功能：附近商户 GEO 搜索、高并发**优惠券秒杀**、博客社区（点赞/Feed流）、用户关注/私信/通知。
+> 闲淘是一个**校园二手闲置交易平台**（核心思路类似闲鱼 / 转转的校园版），核心功能：同城附近商品 GEO 搜索、高并发**捡漏抢购**、晒物社区（点赞/Feed流）、用户关注/私信/通知。
 >
 > 我独立完成后端架构设计与核心实现。基于 **Spring Boot 2.7 + MyBatis-Plus + Redis + RabbitMQ**，Docker Compose 一键部署。
 >
@@ -128,7 +128,7 @@ return second << 32 | seq;
 - Lua 保证原子性；单机 Tomcat 限流只能 JVM 内，Redis 是**分布式限流**
 
 **第 2 关 — Lua 原子秒杀（`seckill.lua`）**：
-- 参数：voucherId / userId / orderId
+- 参数：flashId / userId / orderId
 - 逻辑：`GET 库存 → 判空 → SISMEMBER 判重复 → SET 扣减 → SADD 记录用户`，全部在一个 Lua 脚本内原子执行
 - 返回值：1=库存不足，2=重复下单，0=成功
 - **注意**：扣库存用 `SET stock-1` 而非 `INCRBY`（INCRBY 遇脏数据会崩溃，压测踩过坑）
@@ -140,7 +140,7 @@ return second << 32 | seq;
 
 **第 4 关 — 消费者（`OrderConsumer`）**：
 - 手动 ACK（`acknowledge-mode: manual`），成功 `basicAck`，失败 `basicNack(requeue=false)` 进死信
-- 幂等校验：先查 DB 是否已有该用户+券订单
+- 幂等校验：先查 DB 是否已有该用户+flash_id 的订单
 - 乐观锁更新库存：`stock = stock - 1 WHERE stock > 0`
 - 消费并发 concurrency=20~50，prefetch=50
 
@@ -160,7 +160,7 @@ return second << 32 | seq;
 ### 考点 6：Feed 流 + 点赞 + 签到 + GEO（Redis 数据结构秀肌肉）
 
 **Feed 流（推模式）**：
-- 博主发笔记 → 遍历粉丝，写入每个粉丝的 ZSet `feed:{userId}`，score=时间戳
+- 用户发布晒物 → 遍历粉丝，写入每个粉丝的 ZSet `feed:{userId}`，score=时间戳
 - 滚动分页：`REVRANGEBYSCORE key max min offset count`，返回 `minTime + offset` 翻页
 - **为什么不用 Page 分页？** 新增数据会挤掉分页位置，导致重复/丢失 → 用游标方式
 
@@ -175,7 +175,7 @@ return second << 32 | seq;
 - **优点**：1 个用户 1 年只占 46 字节，内存极小
 
 **GEO 附近搜索**：
-- 商户坐标写入 `shop:geo:{typeId}`，`GEOSEARCH` 5000 米 + includeDistance
+- 商品坐标写入 `goods:geo:{typeId}`，`GEOSEARCH` 5000 米 + includeDistance
 - 手动分页：skip + limit；DB `ORDER BY FIELD(id,...)` 保持距离排序
 - fallback：GEO 无数据时降级普通分页查询
 
@@ -205,7 +205,7 @@ return second << 32 | seq;
 
 ## 四、压测调优数据（背数字）
 
-**环境**：单机虚拟机，JMeter 5.6.3，接口 `/voucher-order/seckill/10` 经 Nginx `/api/` 代理
+**环境**：单机虚拟机，JMeter 5.6.3，接口 `/flash-order/seckill/10` 经 Nginx `/api/` 代理
 
 | 轮次 | 关键操作 | Error% |
 |:---|:---|:---|
@@ -231,7 +231,7 @@ return second << 32 | seq;
 
 ## 五、快问快答 30 条（面试速刷）
 
-1. **项目是什么** → 本地生活点评平台，含秒杀/缓存/GEO/社区
+1. **项目是什么** → 校园二手交易平台，含捡漏抢购/缓存/GEO/晒物社区
 2. **秒杀怎么防超卖** → Lua 原子扣减 + DB `WHERE stock>0` + 幂等校验
 3. **秒杀为什么用 MQ** → 削峰、持久化可靠、死信兜底、解耦
 4. **消息可靠性** → 生产者 Confirm/Returns + 手动 ACK + 死信 + Redis 补偿
@@ -259,7 +259,7 @@ return second << 32 | seq;
 26. **压测错误率** → 100% → 7.89%，瓶颈在网络层
 27. **验证码** → Redis 存 2 分钟，手机号做 key
 28. **私信已读** → 查询历史时批量置已读
-29. **幂等设计** → 消费者查重 user_id+voucher_id
+29. **幂等设计** → 消费者查重 user_id+flash_id
 30. **项目最大难点** → 秒杀高并发 + 缓存一致性 + 消息可靠性
 
 ---
@@ -273,7 +273,7 @@ return second << 32 | seq;
    → 压测时临时关闭（避免误伤压测流量），生产环境开启。面试话术：压测验证的是核心链路吞吐，限流逻辑本身有单测。
 
 3. **"逻辑过期返回旧数据，一致性怎么保证？"**
-   → 牺牲强一致换取高可用，30 分钟内自动修复；对商户详情这类读多写少的数据可接受。需要强一致场景换互斥锁方案。
+   → 牺牲强一致换取高可用，30 分钟内自动修复；对商品详情这类读多写少的数据可接受。需要强一致场景换互斥锁方案。
 
 4. **"Redis 挂了怎么办？"**
    → 缓存层面：穿透防护为空返回；GEO 有 DB fallback。生产可上哨兵/集群（项目已预留哨兵配置注释）。
