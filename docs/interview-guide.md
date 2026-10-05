@@ -9,11 +9,11 @@
 
 **"请简单介绍一下这个项目"**
 
-> 知味是一个本地生活服务点评平台，类似大众点评。核心功能包括：**附近商户 GEO 搜索**、**高并发优惠券秒杀**、博客社区、用户关注/私信聊天等。
+> 闲淘是一个校园二手闲置交易平台（类似闲鱼 / 转转的校园版）。核心功能包括：**同城附近商品 GEO 搜索**、**高并发捡漏抢购（秒杀）**、晒物社区、用户关注/私信聊天等。
 >
 > 我独立负责了整个后端架构设计和开发，特别是秒杀系统的完整高并发改造。系统基于 Spring Boot 2.7 + MyBatis Plus + Redis + RabbitMQ 构建，通过 Docker Compose 实现一键部署。
 >
-> 最终在单机虚拟机环境下，秒杀接口可以支撑 2000+ 并发，所有到达服务端的请求全部处理成功。
+> 最终在单机虚拟机环境下，秒杀接口可支撑 1000 并发，所有到达服务端的请求全部处理成功。
 
 ---
 
@@ -50,9 +50,9 @@
 > 
 > 因为后续要部署多台服务器做集群，Redis 是中心化存储，天然支持分布式 Session 共享。Tomcat Session 存在本地内存，集群下需要额外配置 Session 复制，性能差且不稳定。
 
-### 3.2 商户模块（缓存架构核心）
+### 3.2 商品模块（缓存架构核心）
 
-**实现内容**：商户详情查询、按类型分页查询、附近商户搜索。
+**实现内容**：商品详情查询、按类型分页查询、附近商品搜索。
 
 **缓存架构演进**（面试重点）：
 
@@ -86,10 +86,10 @@
 **GEO 附近搜索实现**：
 
 ```text
-1. 商户坐标预先写入 Redis GEO（key: shop:geo:{typeId}）
+1. 商品坐标预先写入 Redis GEO（key: goods:geo:{typeId}）
 2. 用户传入坐标 (x, y)，通过 GEOSEARCH 按距离排序返回
 3. 手动分页：skip + limit 截取对应页码的数据
-4. 批量查询 DB 获取商户详情，FIELD 函数保持顺序
+4. 批量查询 DB 获取商品详情，FIELD 函数保持顺序
 5. fallback：GEO 数据不存在时降级到数据库普通查询
 ```
 
@@ -153,15 +153,15 @@
 > 1. **生产者确认**：`ConfirmCallback` 确认消息到达 Exchange，`ReturnsCallback` 确认消息路由到 Queue。失败时记录到 Redis Set（`order:fail`），后续人工补偿。
 > 2. **消费者确认**：手动 ACK 模式（`acknowledge-mode: manual`），处理成功才 `basicAck`，异常 `basicNack` 进入死信。
 > 3. **死信补偿**：DLX 消费者对异常订单做 Redis 库存回滚 + 日志记录。
-> 4. **幂等性**：消费者处理前先查 DB 是否已有该用户+券的订单记录。
+> 4. **幂等性**：消费者处理前先查 DB 是否已有该用户+flash_id 的订单记录。
 
-### 3.4 博客社区模块
+### 3.4 晒物社区模块
 
-**功能**：发布/查看博客、点赞（取消）、点赞排行榜、关注 Feed 流。
+**功能**：发布/查看晒物、点赞（取消）、点赞排行榜、关注 Feed 流。
 
 **设计要点**：
-- 点赞用 Redis ZSet 存储（`blog:liked:{blogId}`），score 为点赞时间戳，天然支持排行榜
-- 发布博客后推送粉丝收件箱（`feed:{followerId}`），ZSet 存储，实现推模式 Feed 流
+- 点赞用 Redis ZSet 存储（`note:liked:{noteId}`），score 为点赞时间戳，天然支持排行榜
+- 发布晒物后推送粉丝收件箱（`feed:{followerId}`），ZSet 存储，实现推模式 Feed 流
 - 滚动分页采用 ZSet 的 `REVRANGEBYSCORE` + offset，解决传统分页新增数据导致重复的问题
 
 ### 3.5 私信聊天模块
@@ -189,8 +189,8 @@
 
 > 三层保障：
 > 1. **Lua 原子脚本**：GET 库存 → 判断 >0 → SET 扣减，三步在一段 Lua 中原子执行，Redis 单线程保证串行
-> 2. **DB 乐观锁**：更新秒杀券库存时加 `gt("stock", 0)` 条件，防止并发下扣成负数
-> 3. **幂等校验**：消费者下单前 `COUNT` 用户+券的已有订单，防止重复下单
+> 2. **DB 乐观锁**：更新捡漏活动库存时加 `gt("stock", 0)` 条件，防止并发下扣成负数
+> 3. **幂等校验**：消费者下单前 `COUNT` user_id + flash_id 的已有订单，防止重复下单
 
 ### Q2：分布式 ID 怎么生成的？
 
@@ -229,8 +229,8 @@
 > - 解决：将 `INCRBY stockKey -1` 改为 `SET stockKey, stock - 1`，对脏数据有容错性
 >
 > **2. 消息序列化报错 → 缺少 MessageConverter**
-> - 现象：RabbitMQ 发送 VoucherOrder 对象时报序列化异常
-> - 排查：Spring 默认用 JDK 序列化，但 VoucherOrder 未实现 Serializable
+> - 现象：RabbitMQ 发送 FlashOrder 对象时报序列化异常
+> - 排查：Spring 默认用 JDK 序列化，但 FlashOrder 未实现 Serializable
 > - 解决：配置 `Jackson2JsonMessageConverter`，消息以 JSON 传输
 
 ---
@@ -280,7 +280,7 @@
 
 ---
 
-> 建议面试前通读一遍核心代码，特别是 [VoucherOrderServiceImpl](file://D:\a_develop\hmdp\hm-dianping\src\main\java\com\hmdp\service\impl\VoucherOrderServiceImpl.java) 和 [ShopServiceImpl](file://D:\a_develop\hmdp\hm-dianping\src\main\java\com\hmdp\service\impl\ShopServiceImpl.java)，做到能脱离文档白板画出秒杀时序图和缓存架构图。
+> 建议面试前通读一遍核心代码，特别是 [FlashOrderServiceImpl](file://D:\a_develop\hmdp\hm-dianping\src\main\java\com\xiantao\service\impl\FlashOrderServiceImpl.java) 和 [GoodsServiceImpl](file://D:\a_develop\hmdp\hm-dianping\src\main\java\com\xiantao\service\impl\GoodsServiceImpl.java)，做到能脱离文档白板画出秒杀时序图和缓存架构图。
 
 ---
 
@@ -298,10 +298,10 @@ sequenceDiagram
     participant Redis as Redis<br/>限流+库存+订单集
     participant MQ as RabbitMQ<br/>order.exchange
     participant Consumer as OrderConsumer<br/>order.queue
-    participant DB as MySQL<br/>秒杀券+订单表
+    participant DB as MySQL<br/>捡漏库存+订单表
     participant DLX as 死信队列<br/>order.dlx.queue
 
-    User->>Nginx: POST /voucher-order/seckill/10
+    User->>Nginx: POST /flash-order/seckill/10
     Nginx->>Ctrl: rewrite + proxy_pass
 
     Note over Ctrl,Redis: === 第 1 关：滑动窗口限流 ===
@@ -326,19 +326,19 @@ sequenceDiagram
     Note over Ctrl,MQ: === 第 3 关：RabbitMQ 异步下单 ===
     Ctrl->>Redis: redisIdWorker.nextId("order")<br/>timestamp<<32 | sequence
     Redis-->>Ctrl: 返回全局唯一 orderId
-    Ctrl->>MQ: convertAndSend(order.exchange, order.generate)<br/>消息体: voucherOrder(CorrelationData=orderId)
+    Ctrl->>MQ: convertAndSend(order.exchange, order.generate)<br/>消息体: flashOrder(CorrelationData=orderId)
     MQ-->>Ctrl: ConfirmCallback: 到达Exchange ✓
     Ctrl-->>User: {"success":true, "data":orderId}
 
     Note over MQ,Consumer: === 第 4 关：消费者异步处理 ===
     MQ->>Consumer: 投递消息到 order.queue<br/>(prefetch=50, manual ack)
-    Consumer->>DB: COUNT(user_id + voucher_id) 幂等校验
+    Consumer->>DB: COUNT(user_id + flash_id) 幂等校验
     alt 已存在订单
         Consumer->>MQ: basicAck（丢弃重复消息）
     else 首次下单
-        Consumer->>DB: UPDATE seckill_voucher<br/>SET stock=stock-1<br/>WHERE voucher_id=? AND stock>0
+        Consumer->>DB: UPDATE tb_flash_stock<br/>SET stock=stock-1<br/>WHERE flash_id=? AND stock>0
         alt stock>0 更新成功
-            Consumer->>DB: INSERT voucher_order
+            Consumer->>DB: INSERT tb_flash_order
             Consumer->>MQ: basicAck（手动确认）
         else stock<=0 更新失败
             Consumer->>MQ: basicNack(false,false)<br/>拒绝且不重回队列
@@ -347,7 +347,7 @@ sequenceDiagram
 
     Note over MQ,DLX: === 第 5 关：死信队列异常兜底 ===
     MQ->>DLX: basicNack → 路由到 order.dlx.queue
-    DLX->>Redis: INCR seckill:stock:voucherId<br/>补偿回滚 Redis 库存
+    DLX->>Redis: INCR flash:stock:flashId<br/>补偿回滚 Redis 库存
     DLX->>DLX: log.error 记录异常订单<br/>人工介入处理
 ```
 
@@ -361,7 +361,7 @@ sequenceDiagram
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  用户                                                           │
-│  │  POST /voucher-order/seckill/{voucherId}                    │
+│  │  POST /flash-order/seckill/{flashId}                        │
 │  │  Header: authorization: {token}                             │
 │  ▼                                                              │
 │  Nginx (反向代理)                                                │
@@ -378,8 +378,8 @@ sequenceDiagram
 │  ▼                                                              │
 │  ┌────────────── 第 2 关：Lua 原子扣库存 ──────────────┐        │
 │  │  seckill.lua (一次 Redis 调用，原子执行)             │       │
-│  │  key: seckill:stock:{voucherId}                    │       │
-│  │  key: seckill:order:{voucherId} (用户集合)          │       │
+│  │  key: flash:stock:{flashId}                        │       │
+│  │  key: flash:order:{flashId}     (用户集合)          │       │
 │  │                                                     │       │
 │  │  ① GET stock → 判 null 或 ≤0 → return 1            │       │
 │  │  ② SISMEMBER orderSet userId → ==1 → return 2      │       │
@@ -393,7 +393,7 @@ sequenceDiagram
 │  │  rabbitTemplate.convertAndSend(                       │      │
 │  │    "order.exchange",     // 交换机                     │      │
 │  │    "order.generate",     // routingKey                 │      │
-│  │    voucherOrder,         // 消息体(JSON序列化)          │      │
+│  │    flashOrder,           // 消息体(JSON序列化)          │      │
 │  │    CorrelationData(orderId) // 消息追踪ID              │      │
 │  │  )                                                    │      │
 │  │                                                       │      │
@@ -410,11 +410,11 @@ sequenceDiagram
 │  │  @RabbitListener 监听 order.queue                     │      │
 │  │  prefetch=50, acknowledge-mode=manual                 │      │
 │  │                                                       │      │
-│  │  ① 幂等校验: COUNT(*) WHERE user_id AND voucher_id    │      │
+│  │  ① 幂等校验: COUNT(*) WHERE user_id AND flash_id      │      │
 │  │     已有记录 → basicAck(丢弃)                         │      │
-│  │  ② UPDATE seckill_voucher SET stock=stock-1           │      │
-│  │     WHERE voucher_id=? AND stock>0  (乐观锁)          │      │
-│  │  ③ INSERT INTO voucher_order (订单落库)               │      │
+│  │  ② UPDATE tb_flash_stock  SET stock=stock-1           │      │
+│  │     WHERE flash_id=?   AND stock>0  (乐观锁)          │      │
+│  │  ③ INSERT INTO tb_flash_order (订单落库)              │      │
 │  │  ④ basicAck() 手动确认                                │      │
 │  │                                                       │      │
 │  │  ❌ 异常 → basicNack(deliveryTag, false, false)        │      │
@@ -425,8 +425,8 @@ sequenceDiagram
 │  ┌────────────── 第 5 关：死信队列补偿 ──────────────────┐      │
 │  │  dlxConsumer 监听 order.dlx.queue                     │      │
 │  │                                                       │      │
-│  │  ① INCR seckill:stock:{voucherId} (Redis库存回滚)     │      │
-│  │  ② log.error 记录订单ID+用户ID+券ID                   │      │
+│  │  ① INCR flash:stock:{flashId}     (Redis库存回滚)     │      │
+│  │  ② log.error 记录订单ID+用户ID+场次ID                 │      │
 │  │  ③ 人工介入处理                                        │      │
 │  │                                                       │      │
 │  │  死信队列绑定:                                          │      │
