@@ -70,7 +70,7 @@ sequenceDiagram
 ## 📁 项目结构
 
 ```
-hmdp/
+Xiantao/
 ├── hm-dianping/                          # Spring Boot 后端
 │   ├── src/main/java/com/xiantao/
 │   │   ├── config/                       # 配置类（MVC、Redis、RabbitMQ、Knife4j）
@@ -129,8 +129,8 @@ hmdp/
 
 ```bash
 # 克隆项目
-git clone https://github.com/orange-orunji/hmdp.git
-cd hmdp
+git clone https://github.com/orange-orunji/Xiantao.git
+cd Xiantao
 
 # 启动所有服务（MySQL、Redis、后端、Nginx）
 docker-compose up -d
