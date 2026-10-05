@@ -12,7 +12,7 @@
 
 | 项目 | 详情 |
 |------|------|
-| 接口 | `POST /voucher-order/seckill/10`（经由 Nginx `/api/` 代理） |
+| 接口 | `POST /flash-order/seckill/10`（经由 Nginx `/api/` 代理） |
 | 服务端 | Spring Boot 2.7.18, JDK 17, 内嵌 Tomcat |
 | Redis | Docker 虚拟机 192.168.161.128:6379 |
 | MySQL | Docker 虚拟机 192.168.161.128:3306 |
